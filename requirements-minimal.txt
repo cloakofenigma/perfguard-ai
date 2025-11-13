@@ -1,0 +1,26 @@
+# Minimal PerfGuard AI Dependencies (Faster Installation)
+# Use this if full requirements.txt is too slow
+
+# Core AI & API
+anthropic>=0.39.0
+httpx>=0.27.0
+requests==2.32.3
+
+# Testing & Benchmarking
+pytest==8.3.3
+pytest-benchmark==4.0.0
+pytest-flask==1.3.0
+
+# Performance Monitoring
+memory-profiler==0.61.0
+psutil==6.1.0
+radon==6.0.1
+
+# Sample Application (Flask)
+Flask==3.0.0
+Flask-Cors==4.0.0
+Werkzeug==3.0.1
+
+# Note: pandas, bandit, safety, black, ruff are optional
+# Install them later if needed:
+# pip install pandas bandit safety black ruff python-dotenv colorama

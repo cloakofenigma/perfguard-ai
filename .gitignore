@@ -297,3 +297,5 @@ dist/
 # ──────────────────────────────
 # END OF .gitignore
 # ========================================
+*.txt
+perfguard-software-architect-with-mor.txt

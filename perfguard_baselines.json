@@ -1,0 +1,51 @@
+{
+  "baselines": {
+    "execution_time": {
+      "metrics": {
+        "current": 0.3917594386493132
+      },
+      "timestamp": "2025-11-13T01:33:49.109461",
+      "version": 1
+    },
+    "memory_rss": {
+      "metrics": {
+        "current": 63.1484375
+      },
+      "timestamp": "2025-11-13T01:34:46.613838",
+      "version": 1
+    },
+    "cpu_utilization": {
+      "metrics": {
+        "current": 0.23857142857142857
+      },
+      "timestamp": "2025-11-13T01:35:46.700270",
+      "version": 1
+    },
+    "io_latency": {
+      "metrics": {
+        "current": 38.75462789083718
+      },
+      "timestamp": "2025-11-13T01:36:47.236584",
+      "version": 1
+    },
+    "complexity": {
+      "metrics": {
+        "current": 143,
+        "files": {
+          "perfguard/ai_analyzer.py": 39,
+          "perfguard/init.py": 0,
+          "perfguard/main.py": 34,
+          "perfguard/metrics_collector.py": 47,
+          "perfguard/prompts.py": 1,
+          "perfguard/rules_engine.py": 22
+        }
+      },
+      "timestamp": "2025-11-13T01:36:47.268954",
+      "version": 1
+    }
+  },
+  "metadata": {
+    "last_updated": "2025-11-13T01:36:47.268965",
+    "total_baselines": 5
+  }
+}

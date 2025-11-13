@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ movie.title }} - CineVault</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">🎬 CineVault</h1>
+                <nav class="nav">
+                    <a href="/" class="nav-link">← Back to Home</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="detail-page">
+        <div class="movie-hero" style="background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('{{ movie.poster }}') center/cover;">
+            <div class="container">
+                <div class="movie-hero-content">
+                    <img src="{{ movie.poster }}" alt="{{ movie.title }}" class="detail-poster" onerror="this.src='https://via.placeholder.com/300x450?text={{ movie.title }}'">
+                    <div class="movie-hero-info">
+                        <h1 class="detail-title">{{ movie.title }}</h1>
+                        <div class="detail-meta">
+                            <span class="meta-item">⭐ {{ movie.rating }}/10</span>
+                            <span class="meta-item">🕒 {{ movie.runtime }}</span>
+                            <span class="meta-item">📅 {{ movie.year }}</span>
+                            <span class="meta-item">🌍 {{ movie.language }}</span>
+                        </div>
+                        <div class="genre-list">
+                            {% for genre in movie.genre %}
+                            <span class="genre-badge">{{ genre }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="movie-rating-box">
+                            <div class="rating-circle">
+                                <svg width="100" height="100">
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#333" stroke-width="8"/>
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#ffd700" stroke-width="8"
+                                            stroke-dasharray="{{ (movie.rating * 28.27)|round }}, 282.7"
+                                            transform="rotate(-90 50 50)"/>
+                                    <text x="50" y="50" text-anchor="middle" dy=".3em" fill="#fff" font-size="24" font-weight="bold">
+                                        {{ movie.rating }}
+                                    </text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="detail-content">
+                <section class="detail-section">
+                    <h2 class="section-heading">📖 Plot Summary</h2>
+                    <p class="plot-text">{{ movie.plot }}</p>
+                </section>
+
+                <section class="detail-section">
+                    <h2 class="section-heading">🎬 Cast & Crew</h2>
+                    <div class="crew-grid">
+                        <div class="crew-card">
+                            <h3>Director</h3>
+                            <p>{{ movie.crew.director }}</p>
+                        </div>
+                        <div class="crew-card">
+                            <h3>Writer</h3>
+                            <p>{{ movie.crew.writer }}</p>
+                        </div>
+                        <div class="crew-card">
+                            <h3>Producer</h3>
+                            <p>{{ movie.crew.producer }}</p>
+                        </div>
+                        <div class="crew-card">
+                            <h3>Music</h3>
+                            <p>{{ movie.crew.music }}</p>
+                        </div>
+                        <div class="crew-card">
+                            <h3>Cinematography</h3>
+                            <p>{{ movie.crew.cinematography }}</p>
+                        </div>
+                        <div class="crew-card">
+                            <h3>Box Office</h3>
+                            <p>{{ movie.box_office }}</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="detail-section">
+                    <h2 class="section-heading">⭐ Star Cast</h2>
+                    <div class="cast-list">
+                        {% for actor in movie.cast %}
+                        <div class="cast-card">
+                            <div class="cast-avatar">{{ actor[0] }}</div>
+                            <p class="cast-name">{{ actor }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="detail-section">
+                    <h2 class="section-heading">📊 Movie Stats</h2>
+                    <div class="stats-detailed">
+                        <div class="stat-item">
+                            <span class="stat-label">Rating</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill" style="width: {{ (movie.rating * 10)|round }}%"></div>
+                            </div>
+                            <span class="stat-value">{{ movie.rating }}/10</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Duration</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill" style="width: 75%"></div>
+                            </div>
+                            <span class="stat-value">{{ movie.runtime }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Year</span>
+                            <div class="stat-bar">
+                                <div class="stat-fill" style="width: {{ ((movie.year - 1990) / 35 * 100)|round }}%"></div>
+                            </div>
+                            <span class="stat-value">{{ movie.year }}</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="alert('Feature coming soon!')">Add to Watchlist</button>
+                    <button class="btn btn-secondary" onclick="alert('Feature coming soon!')">Share Movie</button>
+                    <a href="/" class="btn btn-outline">Back to Movies</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 CineVault. All rights reserved. | Powered by PerfGuard AI</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth entrance animation
+        window.addEventListener('load', () => {
+            document.querySelectorAll('.detail-section').forEach((section, index) => {
+                setTimeout(() => {
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+
+        // Interactive cast cards
+        document.querySelectorAll('.cast-card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>
