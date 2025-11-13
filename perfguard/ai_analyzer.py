@@ -1,13 +1,13 @@
 """
 PerfGuard AI Analyzer
-Uses Claude 3.5 Sonnet or GPT-4 to analyze code changes and predict performance risks
+Uses Claude 3.5 Sonnet or Google Gemini to analyze code changes and predict performance risks
 """
 import os
 import json
 import time
 from typing import Dict, Any, List, Optional
 from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
-from openai import OpenAI, APIError as OpenAIAPIError, RateLimitError as OpenAIRateLimitError
+import google.generativeai as genai
 from config import config
 from logger import get_logger
 from prompts import get_prompt
@@ -16,23 +16,24 @@ logger = get_logger(__name__)
 
 
 class AIAnalyzer:
-    """Analyzes code changes using Claude AI or OpenAI GPT (with automatic fallback)"""
+    """Analyzes code changes using Claude AI or Google Gemini (with automatic fallback)"""
 
     def __init__(self):
         # Initialize available providers
         self.anthropic_client = None
-        self.openai_client = None
+        self.gemini_model = None
 
         if config.ANTHROPIC_API_KEY:
             self.anthropic_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
             logger.info("Anthropic Claude initialized")
 
-        if config.OPENAI_API_KEY:
-            self.openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
-            logger.info("OpenAI GPT initialized")
+        if config.GOOGLE_API_KEY:
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+            self.gemini_model = genai.GenerativeModel(config.GEMINI_MODEL)
+            logger.info("Google Gemini initialized")
 
-        if not self.anthropic_client and not self.openai_client:
-            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or OPENAI_API_KEY) is required")
+        if not self.anthropic_client and not self.gemini_model:
+            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or GOOGLE_API_KEY) is required")
 
         self.max_tokens = config.MAX_TOKENS
 
@@ -119,9 +120,9 @@ class AIAnalyzer:
         logger.error(f"❌ Claude API failed after {max_retries} attempts: {error_msg}")
         return None
 
-    def _call_openai(self, prompt: str, max_retries: int) -> Optional[str]:
-        """Try calling OpenAI GPT API with retries"""
-        if not self.openai_client:
+    def _call_gemini(self, prompt: str, max_retries: int) -> Optional[str]:
+        """Try calling Google Gemini API with retries"""
+        if not self.gemini_model:
             return None
 
         # Sanitize prompt to handle Unicode characters
@@ -130,41 +131,46 @@ class AIAnalyzer:
         last_error = None
         for attempt in range(max_retries):
             try:
-                logger.info(f"Calling OpenAI GPT API (attempt {attempt + 1}/{max_retries})...")
+                logger.info(f"Calling Google Gemini API (attempt {attempt + 1}/{max_retries})...")
 
-                response = self.openai_client.chat.completions.create(
-                    model=config.OPENAI_MODEL,
-                    messages=[{"role": "user", "content": sanitized_prompt}],
-                    max_tokens=self.max_tokens,
-                    timeout=config.API_TIMEOUT
+                # Configure generation settings
+                generation_config = {
+                    "max_output_tokens": self.max_tokens,
+                    "temperature": 0.1,  # Low temperature for consistent analysis
+                }
+
+                response = self.gemini_model.generate_content(
+                    sanitized_prompt,
+                    generation_config=generation_config
                 )
 
-                content = response.choices[0].message.content
-                logger.info(f"✅ Received response from OpenAI ({len(content)} chars)")
+                content = response.text
+                logger.info(f"✅ Received response from Gemini ({len(content)} chars)")
                 return content
-
-            except (OpenAIRateLimitError, OpenAIAPIError) as e:
-                last_error = e
-                error_msg = self._sanitize_text(str(e))
-                logger.warning(f"OpenAI API error (attempt {attempt + 1}): {error_msg}")
-                if attempt < max_retries - 1:
-                    time.sleep(config.API_RETRY_DELAY * (attempt + 1))
 
             except Exception as e:
                 last_error = e
                 error_msg = self._sanitize_text(str(e))
-                logger.error(f"Unexpected OpenAI error: {error_msg}")
-                break
+
+                # Check if it's a rate limit or quota error
+                error_str = str(e).lower()
+                if 'rate' in error_str or 'quota' in error_str:
+                    logger.warning(f"Gemini API error (attempt {attempt + 1}): {error_msg}")
+                    if attempt < max_retries - 1:
+                        time.sleep(config.API_RETRY_DELAY * (attempt + 1))
+                else:
+                    logger.error(f"Unexpected Gemini error: {error_msg}")
+                    break
 
         error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
-        logger.error(f"❌ OpenAI API failed after {max_retries} attempts: {error_msg}")
+        logger.error(f"❌ Gemini API failed after {max_retries} attempts: {error_msg}")
         return None
 
     def _call_llm_with_fallback(self, prompt: str, max_retries: int = None) -> str:
         """
         Call LLM API with automatic fallback to backup provider
 
-        Tries providers in order: Anthropic -> OpenAI
+        Tries providers in order: Anthropic -> Google Gemini
 
         Args:
             prompt: The prompt to send
@@ -186,10 +192,10 @@ class AIAnalyzer:
             if result:
                 return result
 
-        # Fallback to OpenAI
-        if self.openai_client:
-            logger.info("🔄 Falling back to OpenAI GPT...")
-            result = self._call_openai(prompt, max_retries)
+        # Fallback to Google Gemini
+        if self.gemini_model:
+            logger.info("🔄 Falling back to Google Gemini...")
+            result = self._call_gemini(prompt, max_retries)
             if result:
                 return result
 

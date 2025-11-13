@@ -10,16 +10,16 @@ class Config:
 
     # API Configuration
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GITHUB_TOKEN = os.getenv("GH_TOKEN")
 
     # LLM Configuration
     CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Latest model
-    OPENAI_MODEL = "gpt-4-turbo-preview"  # Backup model
+    GEMINI_MODEL = "gemini-1.5-pro"  # Backup model
     MAX_TOKENS = 2048
 
-    # LLM Priority (tries in order: anthropic -> openai)
-    LLM_PROVIDERS = ["anthropic", "openai"]
+    # LLM Priority (tries in order: anthropic -> gemini)
+    LLM_PROVIDERS = ["anthropic", "gemini"]
 
     # Performance Thresholds (as per spec)
     THRESHOLDS = {
@@ -71,8 +71,8 @@ class Config:
     @classmethod
     def validate(cls) -> bool:
         """Validate configuration"""
-        if not cls.ANTHROPIC_API_KEY and not cls.OPENAI_API_KEY:
-            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or OPENAI_API_KEY) is required")
+        if not cls.ANTHROPIC_API_KEY and not cls.GOOGLE_API_KEY:
+            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or GOOGLE_API_KEY) is required")
 
         # Validate weights sum to 100
         total_weight = sum(cls.WEIGHTS.values())
