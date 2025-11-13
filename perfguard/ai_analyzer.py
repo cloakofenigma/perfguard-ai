@@ -36,10 +36,38 @@ class AIAnalyzer:
 
         self.max_tokens = config.MAX_TOKENS
 
+    def _sanitize_prompt(self, prompt: str) -> str:
+        """
+        Sanitize prompt to handle Unicode characters properly
+        Ensures the prompt can be safely encoded and sent to AI APIs
+        """
+        try:
+            # Encode to UTF-8 and decode back, replacing problematic characters
+            sanitized = prompt.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+            # Replace common problematic Unicode characters with ASCII equivalents
+            replacements = {
+                '\u201c': '"',  # Left double quote
+                '\u201d': '"',  # Right double quote
+                '\u2018': "'",  # Left single quote
+                '\u2019': "'",  # Right single quote
+                '\u2013': '-',  # En dash
+                '\u2014': '--', # Em dash
+                '\u2026': '...', # Ellipsis
+            }
+            for unicode_char, ascii_char in replacements.items():
+                sanitized = sanitized.replace(unicode_char, ascii_char)
+            return sanitized
+        except Exception as e:
+            logger.warning(f"Error sanitizing prompt: {e}, using original")
+            return prompt
+
     def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
         """Try calling Anthropic Claude API with retries"""
         if not self.anthropic_client:
             return None
+
+        # Sanitize prompt to handle Unicode characters
+        sanitized_prompt = self._sanitize_prompt(prompt)
 
         last_error = None
         for attempt in range(max_retries):
@@ -49,7 +77,7 @@ class AIAnalyzer:
                 response = self.anthropic_client.messages.create(
                     model=config.CLAUDE_MODEL,
                     max_tokens=self.max_tokens,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": sanitized_prompt}],
                     timeout=config.API_TIMEOUT
                 )
 
@@ -76,6 +104,9 @@ class AIAnalyzer:
         if not self.openai_client:
             return None
 
+        # Sanitize prompt to handle Unicode characters
+        sanitized_prompt = self._sanitize_prompt(prompt)
+
         last_error = None
         for attempt in range(max_retries):
             try:
@@ -83,7 +114,7 @@ class AIAnalyzer:
 
                 response = self.openai_client.chat.completions.create(
                     model=config.OPENAI_MODEL,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": sanitized_prompt}],
                     max_tokens=self.max_tokens,
                     timeout=config.API_TIMEOUT
                 )
