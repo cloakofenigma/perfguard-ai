@@ -297,5 +297,6 @@ dist/
 # ──────────────────────────────
 # END OF .gitignore
 # ========================================
-*.txt
+# Ignore conversation export files (but keep requirements.txt tracked)
+conversation_export_*.txt
 perfguard-software-architect-with-mor.txt
