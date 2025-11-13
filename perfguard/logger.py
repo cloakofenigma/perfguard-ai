@@ -29,8 +29,15 @@ class PerfGuardLogger:
         if logger.handlers:
             return logger
 
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
+        # Console handler with UTF-8 encoding
+        import io
+        # Wrap stdout to ensure UTF-8 encoding
+        if hasattr(sys.stdout, 'buffer'):
+            utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        else:
+            utf8_stdout = sys.stdout
+
+        console_handler = logging.StreamHandler(utf8_stdout)
         console_handler.setLevel(logging.INFO)
 
         # Formatter with timestamp, level, and message

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 PerfGuard AI Main Entry Point
 Orchestrates the full performance analysis workflow
@@ -9,6 +10,22 @@ import json
 import subprocess
 from typing import List, Dict, Any
 from pathlib import Path
+import locale
+
+# Force UTF-8 encoding for entire script
+if sys.version_info >= (3, 7):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+else:
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, errors='replace')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, errors='replace')
+
+# Set locale to UTF-8
+try:
+    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+except:
+    pass  # Ignore if locale not available
 
 from config import config
 from logger import get_logger

@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   perfguard:
     runs-on: ubuntu-latest
@@ -112,6 +117,15 @@ jobs:
             perfguard_baselines.json
             benchmark_results.json
           retention-days: 30
+
+      - name: Update dashboard data
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Copy report to dashboard public folder for GitHub Pages
+          if [ -f "perfguard_score.json" ]; then
+            cp perfguard_score.json dashboard/public/report.json
+            echo "✅ Updated dashboard with latest performance data"
+          fi
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'

@@ -1,12 +1,13 @@
 """
 PerfGuard AI Analyzer
-Uses Claude 3.5 Sonnet to analyze code changes and predict performance risks
+Uses Claude 3.5 Sonnet or Google Gemini to analyze code changes and predict performance risks
 """
 import os
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
+import google.generativeai as genai
 from config import config
 from logger import get_logger
 from prompts import get_prompt
@@ -15,77 +16,191 @@ logger = get_logger(__name__)
 
 
 class AIAnalyzer:
-    """Analyzes code changes using Claude AI"""
+    """Analyzes code changes using Claude AI or Google Gemini (with automatic fallback)"""
 
     def __init__(self):
-        if not config.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY is required")
+        # Initialize available providers
+        self.anthropic_client = None
+        self.gemini_model = None
 
-        self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-        self.model = config.CLAUDE_MODEL
+        if config.ANTHROPIC_API_KEY:
+            self.anthropic_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+            logger.info("Anthropic Claude initialized")
+
+        if config.GOOGLE_API_KEY:
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+            self.gemini_model = genai.GenerativeModel(config.GEMINI_MODEL)
+            logger.info("Google Gemini initialized")
+
+        if not self.anthropic_client and not self.gemini_model:
+            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or GOOGLE_API_KEY) is required")
+
         self.max_tokens = config.MAX_TOKENS
 
-    def _call_claude_with_retry(
-        self,
-        prompt: str,
-        max_retries: int = None
-    ) -> str:
+    def _sanitize_text(self, text: str) -> str:
         """
-        Call Claude API with retry logic
-
-        Args:
-            prompt: The prompt to send
-            max_retries: Maximum retry attempts (defaults to config)
-
-        Returns:
-            Response text from Claude
+        Sanitize ANY text to handle Unicode characters properly
+        Used for prompts, error messages, and anything that might be logged
+        Uses aggressive ASCII-only encoding to prevent any encoding errors
         """
-        if max_retries is None:
-            max_retries = config.API_RETRY_ATTEMPTS
+        if not isinstance(text, str):
+            text = str(text)
+
+        try:
+            # First, replace common Unicode characters with ASCII equivalents
+            replacements = {
+                '\u201c': '"',  # Left double quote
+                '\u201d': '"',  # Right double quote
+                '\u2018': "'",  # Left single quote
+                '\u2019': "'",  # Right single quote
+                '\u2013': '-',  # En dash
+                '\u2014': '--', # Em dash
+                '\u2026': '...', # Ellipsis
+                '\u00a0': ' ',  # Non-breaking space
+                '\u2022': '*',  # Bullet point
+            }
+            sanitized = text
+            for unicode_char, ascii_char in replacements.items():
+                sanitized = sanitized.replace(unicode_char, ascii_char)
+
+            # Then aggressively encode to ASCII, replacing any remaining non-ASCII chars
+            # This ensures NO Unicode characters can cause encoding errors
+            sanitized = sanitized.encode('ascii', errors='replace').decode('ascii')
+
+            return sanitized
+        except Exception:
+            # If even sanitization fails, use most aggressive approach
+            try:
+                return text.encode('ascii', errors='ignore').decode('ascii')
+            except:
+                return "Error: Could not sanitize text"
+
+    def _sanitize_prompt(self, prompt: str) -> str:
+        """Alias for _sanitize_text for backward compatibility"""
+        return self._sanitize_text(prompt)
+
+    def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
+        """Try calling Anthropic Claude API with retries"""
+        if not self.anthropic_client:
+            return None
+
+        # Sanitize prompt to handle Unicode characters
+        sanitized_prompt = self._sanitize_prompt(prompt)
 
         last_error = None
-
         for attempt in range(max_retries):
             try:
                 logger.info(f"Calling Claude API (attempt {attempt + 1}/{max_retries})...")
 
-                response = self.client.messages.create(
-                    model=self.model,
+                response = self.anthropic_client.messages.create(
+                    model=config.CLAUDE_MODEL,
                     max_tokens=self.max_tokens,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{"role": "user", "content": sanitized_prompt}],
                     timeout=config.API_TIMEOUT
                 )
 
                 content = response.content[0].text
-                logger.info(f"Received response from Claude ({len(content)} chars)")
+                logger.info(f"✅ Received response from Claude ({len(content)} chars)")
                 return content
 
-            except RateLimitError as e:
+            except (RateLimitError, APITimeoutError, APIError) as e:
                 last_error = e
-                wait_time = config.API_RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Rate limit hit, waiting {wait_time}s before retry...")
-                time.sleep(wait_time)
-
-            except APITimeoutError as e:
-                last_error = e
-                logger.warning(f"API timeout on attempt {attempt + 1}")
-                time.sleep(config.API_RETRY_DELAY)
-
-            except APIError as e:
-                last_error = e
-                logger.error(f"API error on attempt {attempt + 1}: {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.warning(f"Claude API error (attempt {attempt + 1}): {error_msg}")
                 if attempt < max_retries - 1:
-                    time.sleep(config.API_RETRY_DELAY)
-                else:
-                    break
+                    time.sleep(config.API_RETRY_DELAY * (attempt + 1))
 
             except Exception as e:
                 last_error = e
-                logger.error(f"Unexpected error: {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.error(f"Unexpected Claude error: {error_msg}")
                 break
 
-        # All retries failed
-        raise Exception(f"Failed to call Claude API after {max_retries} attempts: {last_error}")
+        error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
+        logger.error(f"❌ Claude API failed after {max_retries} attempts: {error_msg}")
+        return None
+
+    def _call_gemini(self, prompt: str, max_retries: int) -> Optional[str]:
+        """Try calling Google Gemini API with retries"""
+        if not self.gemini_model:
+            return None
+
+        # Sanitize prompt to handle Unicode characters
+        sanitized_prompt = self._sanitize_prompt(prompt)
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Calling Google Gemini API (attempt {attempt + 1}/{max_retries})...")
+
+                # Configure generation settings
+                generation_config = {
+                    "max_output_tokens": self.max_tokens,
+                    "temperature": 0.1,  # Low temperature for consistent analysis
+                }
+
+                response = self.gemini_model.generate_content(
+                    sanitized_prompt,
+                    generation_config=generation_config
+                )
+
+                content = response.text
+                logger.info(f"✅ Received response from Gemini ({len(content)} chars)")
+                return content
+
+            except Exception as e:
+                last_error = e
+                error_msg = self._sanitize_text(str(e))
+
+                # Check if it's a rate limit or quota error
+                error_str = str(e).lower()
+                if 'rate' in error_str or 'quota' in error_str:
+                    logger.warning(f"Gemini API error (attempt {attempt + 1}): {error_msg}")
+                    if attempt < max_retries - 1:
+                        time.sleep(config.API_RETRY_DELAY * (attempt + 1))
+                else:
+                    logger.error(f"Unexpected Gemini error: {error_msg}")
+                    break
+
+        error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
+        logger.error(f"❌ Gemini API failed after {max_retries} attempts: {error_msg}")
+        return None
+
+    def _call_llm_with_fallback(self, prompt: str, max_retries: int = None) -> str:
+        """
+        Call LLM API with automatic fallback to backup provider
+
+        Tries providers in order: Anthropic -> Google Gemini
+
+        Args:
+            prompt: The prompt to send
+            max_retries: Maximum retry attempts per provider (defaults to config)
+
+        Returns:
+            Response text from LLM
+
+        Raises:
+            Exception: If all providers fail
+        """
+        if max_retries is None:
+            max_retries = config.API_RETRY_ATTEMPTS
+
+        # Try Anthropic first
+        if self.anthropic_client:
+            logger.info("🔄 Trying Anthropic Claude...")
+            result = self._call_anthropic(prompt, max_retries)
+            if result:
+                return result
+
+        # Fallback to Google Gemini
+        if self.gemini_model:
+            logger.info("🔄 Falling back to Google Gemini...")
+            result = self._call_gemini(prompt, max_retries)
+            if result:
+                return result
+
+        # All providers failed
+        raise Exception(f"All LLM providers failed after {max_retries} attempts each")
 
     def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
         """
@@ -171,7 +286,7 @@ class AIAnalyzer:
             prompt = get_prompt("diff_analysis", diff=diff[:10000])  # Limit diff size
 
             # Call Claude with retry
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
 
             # Extract JSON
             result = self._extract_json_from_response(response_text)
@@ -184,7 +299,8 @@ class AIAnalyzer:
             return result
 
         except Exception as e:
-            logger.error(f"Error during AI analysis: {e}", exc_info=True)
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error during AI analysis: {error_msg}", exc_info=True)
             # Return safe default
             return {
                 "risk_score": 0.5,
@@ -221,7 +337,7 @@ class AIAnalyzer:
                 risk_score=risk_score
             )
 
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
             result = self._extract_json_from_response(response_text)
 
             adjusted_score = result.get("adjusted_score", raw_score)
@@ -235,7 +351,8 @@ class AIAnalyzer:
             }
 
         except Exception as e:
-            logger.error(f"Error refining score: {e}")
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error refining score: {error_msg}")
             return {
                 "adjusted_score": raw_score,
                 "justification": "AI refinement unavailable"
@@ -265,7 +382,7 @@ class AIAnalyzer:
                 history=json.dumps(performance_history or {}, indent=2)
             )
 
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
             result = self._extract_json_from_response(response_text)
 
             return {
@@ -275,7 +392,8 @@ class AIAnalyzer:
             }
 
         except Exception as e:
-            logger.error(f"Error assessing risk: {e}")
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error assessing risk: {error_msg}")
             return {
                 "overall_risk": "medium",
                 "perf_impact": "Unknown",
