@@ -1,0 +1,58 @@
+name: PerfGuard AI
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  perfguard:
+    runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.run-perfguard.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # For git diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run PerfGuard AI
+        id: run-perfguard
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python perfguard/main.py
+          # Output score for job
+          echo "score=$(cat perfguard_score.json | jq -r '.performance_score')" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('perfguard_report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Fail if score < 80
+        if: steps.run-perfguard.outputs.score < 80
+        run: |
+          echo "### 🚫 Performance Score Too Low: ${{ steps.run-perfguard.outputs.score }}/100" >> $GITHUB_STEP_SUMMARY
+          echo "Merge blocked until fixed." >> $GITHUB_STEP_SUMMARY
+          exit 1
+
