@@ -1,12 +1,13 @@
 """
 PerfGuard AI Analyzer
-Uses Claude 3.5 Sonnet to analyze code changes and predict performance risks
+Uses Claude 3.5 Sonnet or GPT-4 to analyze code changes and predict performance risks
 """
 import os
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
+from openai import OpenAI, APIError as OpenAIAPIError, RateLimitError as OpenAIRateLimitError
 from config import config
 from logger import get_logger
 from prompts import get_prompt
@@ -15,77 +16,131 @@ logger = get_logger(__name__)
 
 
 class AIAnalyzer:
-    """Analyzes code changes using Claude AI"""
+    """Analyzes code changes using Claude AI or OpenAI GPT (with automatic fallback)"""
 
     def __init__(self):
-        if not config.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY is required")
+        # Initialize available providers
+        self.anthropic_client = None
+        self.openai_client = None
 
-        self.client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-        self.model = config.CLAUDE_MODEL
+        if config.ANTHROPIC_API_KEY:
+            self.anthropic_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+            logger.info("Anthropic Claude initialized")
+
+        if config.OPENAI_API_KEY:
+            self.openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
+            logger.info("OpenAI GPT initialized")
+
+        if not self.anthropic_client and not self.openai_client:
+            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or OPENAI_API_KEY) is required")
+
         self.max_tokens = config.MAX_TOKENS
 
-    def _call_claude_with_retry(
-        self,
-        prompt: str,
-        max_retries: int = None
-    ) -> str:
-        """
-        Call Claude API with retry logic
-
-        Args:
-            prompt: The prompt to send
-            max_retries: Maximum retry attempts (defaults to config)
-
-        Returns:
-            Response text from Claude
-        """
-        if max_retries is None:
-            max_retries = config.API_RETRY_ATTEMPTS
+    def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
+        """Try calling Anthropic Claude API with retries"""
+        if not self.anthropic_client:
+            return None
 
         last_error = None
-
         for attempt in range(max_retries):
             try:
                 logger.info(f"Calling Claude API (attempt {attempt + 1}/{max_retries})...")
 
-                response = self.client.messages.create(
-                    model=self.model,
+                response = self.anthropic_client.messages.create(
+                    model=config.CLAUDE_MODEL,
                     max_tokens=self.max_tokens,
                     messages=[{"role": "user", "content": prompt}],
                     timeout=config.API_TIMEOUT
                 )
 
                 content = response.content[0].text
-                logger.info(f"Received response from Claude ({len(content)} chars)")
+                logger.info(f"✅ Received response from Claude ({len(content)} chars)")
                 return content
 
-            except RateLimitError as e:
+            except (RateLimitError, APITimeoutError, APIError) as e:
                 last_error = e
-                wait_time = config.API_RETRY_DELAY * (attempt + 1)
-                logger.warning(f"Rate limit hit, waiting {wait_time}s before retry...")
-                time.sleep(wait_time)
-
-            except APITimeoutError as e:
-                last_error = e
-                logger.warning(f"API timeout on attempt {attempt + 1}")
-                time.sleep(config.API_RETRY_DELAY)
-
-            except APIError as e:
-                last_error = e
-                logger.error(f"API error on attempt {attempt + 1}: {e}")
+                logger.warning(f"Claude API error (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
-                    time.sleep(config.API_RETRY_DELAY)
-                else:
-                    break
+                    time.sleep(config.API_RETRY_DELAY * (attempt + 1))
 
             except Exception as e:
                 last_error = e
-                logger.error(f"Unexpected error: {e}")
+                logger.error(f"Unexpected Claude error: {e}")
                 break
 
-        # All retries failed
-        raise Exception(f"Failed to call Claude API after {max_retries} attempts: {last_error}")
+        logger.error(f"❌ Claude API failed after {max_retries} attempts: {last_error}")
+        return None
+
+    def _call_openai(self, prompt: str, max_retries: int) -> Optional[str]:
+        """Try calling OpenAI GPT API with retries"""
+        if not self.openai_client:
+            return None
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Calling OpenAI GPT API (attempt {attempt + 1}/{max_retries})...")
+
+                response = self.openai_client.chat.completions.create(
+                    model=config.OPENAI_MODEL,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=self.max_tokens,
+                    timeout=config.API_TIMEOUT
+                )
+
+                content = response.choices[0].message.content
+                logger.info(f"✅ Received response from OpenAI ({len(content)} chars)")
+                return content
+
+            except (OpenAIRateLimitError, OpenAIAPIError) as e:
+                last_error = e
+                logger.warning(f"OpenAI API error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(config.API_RETRY_DELAY * (attempt + 1))
+
+            except Exception as e:
+                last_error = e
+                logger.error(f"Unexpected OpenAI error: {e}")
+                break
+
+        logger.error(f"❌ OpenAI API failed after {max_retries} attempts: {last_error}")
+        return None
+
+    def _call_llm_with_fallback(self, prompt: str, max_retries: int = None) -> str:
+        """
+        Call LLM API with automatic fallback to backup provider
+
+        Tries providers in order: Anthropic -> OpenAI
+
+        Args:
+            prompt: The prompt to send
+            max_retries: Maximum retry attempts per provider (defaults to config)
+
+        Returns:
+            Response text from LLM
+
+        Raises:
+            Exception: If all providers fail
+        """
+        if max_retries is None:
+            max_retries = config.API_RETRY_ATTEMPTS
+
+        # Try Anthropic first
+        if self.anthropic_client:
+            logger.info("🔄 Trying Anthropic Claude...")
+            result = self._call_anthropic(prompt, max_retries)
+            if result:
+                return result
+
+        # Fallback to OpenAI
+        if self.openai_client:
+            logger.info("🔄 Falling back to OpenAI GPT...")
+            result = self._call_openai(prompt, max_retries)
+            if result:
+                return result
+
+        # All providers failed
+        raise Exception(f"All LLM providers failed after {max_retries} attempts each")
 
     def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
         """
@@ -171,7 +226,7 @@ class AIAnalyzer:
             prompt = get_prompt("diff_analysis", diff=diff[:10000])  # Limit diff size
 
             # Call Claude with retry
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
 
             # Extract JSON
             result = self._extract_json_from_response(response_text)
@@ -221,7 +276,7 @@ class AIAnalyzer:
                 risk_score=risk_score
             )
 
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
             result = self._extract_json_from_response(response_text)
 
             adjusted_score = result.get("adjusted_score", raw_score)
@@ -265,7 +320,7 @@ class AIAnalyzer:
                 history=json.dumps(performance_history or {}, indent=2)
             )
 
-            response_text = self._call_claude_with_retry(prompt)
+            response_text = self._call_llm_with_fallback(prompt)
             result = self._extract_json_from_response(response_text)
 
             return {
