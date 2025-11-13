@@ -36,12 +36,15 @@ class AIAnalyzer:
 
         self.max_tokens = config.MAX_TOKENS
 
-    def _sanitize_prompt(self, prompt: str) -> str:
+    def _sanitize_text(self, text: str) -> str:
         """
-        Sanitize prompt to handle Unicode characters properly
-        Ensures the prompt can be safely encoded and sent to AI APIs
+        Sanitize ANY text to handle Unicode characters properly
+        Used for prompts, error messages, and anything that might be logged
         Uses aggressive ASCII-only encoding to prevent any encoding errors
         """
+        if not isinstance(text, str):
+            text = str(text)
+
         try:
             # First, replace common Unicode characters with ASCII equivalents
             replacements = {
@@ -55,7 +58,7 @@ class AIAnalyzer:
                 '\u00a0': ' ',  # Non-breaking space
                 '\u2022': '*',  # Bullet point
             }
-            sanitized = prompt
+            sanitized = text
             for unicode_char, ascii_char in replacements.items():
                 sanitized = sanitized.replace(unicode_char, ascii_char)
 
@@ -64,12 +67,16 @@ class AIAnalyzer:
             sanitized = sanitized.encode('ascii', errors='replace').decode('ascii')
 
             return sanitized
-        except Exception as e:
+        except Exception:
             # If even sanitization fails, use most aggressive approach
             try:
-                return prompt.encode('ascii', errors='ignore').decode('ascii')
+                return text.encode('ascii', errors='ignore').decode('ascii')
             except:
-                return "Error: Could not sanitize prompt"
+                return "Error: Could not sanitize text"
+
+    def _sanitize_prompt(self, prompt: str) -> str:
+        """Alias for _sanitize_text for backward compatibility"""
+        return self._sanitize_text(prompt)
 
     def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
         """Try calling Anthropic Claude API with retries"""
@@ -97,16 +104,19 @@ class AIAnalyzer:
 
             except (RateLimitError, APITimeoutError, APIError) as e:
                 last_error = e
-                logger.warning(f"Claude API error (attempt {attempt + 1}): {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.warning(f"Claude API error (attempt {attempt + 1}): {error_msg}")
                 if attempt < max_retries - 1:
                     time.sleep(config.API_RETRY_DELAY * (attempt + 1))
 
             except Exception as e:
                 last_error = e
-                logger.error(f"Unexpected Claude error: {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.error(f"Unexpected Claude error: {error_msg}")
                 break
 
-        logger.error(f"❌ Claude API failed after {max_retries} attempts: {last_error}")
+        error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
+        logger.error(f"❌ Claude API failed after {max_retries} attempts: {error_msg}")
         return None
 
     def _call_openai(self, prompt: str, max_retries: int) -> Optional[str]:
@@ -135,16 +145,19 @@ class AIAnalyzer:
 
             except (OpenAIRateLimitError, OpenAIAPIError) as e:
                 last_error = e
-                logger.warning(f"OpenAI API error (attempt {attempt + 1}): {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.warning(f"OpenAI API error (attempt {attempt + 1}): {error_msg}")
                 if attempt < max_retries - 1:
                     time.sleep(config.API_RETRY_DELAY * (attempt + 1))
 
             except Exception as e:
                 last_error = e
-                logger.error(f"Unexpected OpenAI error: {e}")
+                error_msg = self._sanitize_text(str(e))
+                logger.error(f"Unexpected OpenAI error: {error_msg}")
                 break
 
-        logger.error(f"❌ OpenAI API failed after {max_retries} attempts: {last_error}")
+        error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
+        logger.error(f"❌ OpenAI API failed after {max_retries} attempts: {error_msg}")
         return None
 
     def _call_llm_with_fallback(self, prompt: str, max_retries: int = None) -> str:
@@ -280,7 +293,8 @@ class AIAnalyzer:
             return result
 
         except Exception as e:
-            logger.error(f"Error during AI analysis: {e}", exc_info=True)
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error during AI analysis: {error_msg}", exc_info=True)
             # Return safe default
             return {
                 "risk_score": 0.5,
@@ -331,7 +345,8 @@ class AIAnalyzer:
             }
 
         except Exception as e:
-            logger.error(f"Error refining score: {e}")
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error refining score: {error_msg}")
             return {
                 "adjusted_score": raw_score,
                 "justification": "AI refinement unavailable"
@@ -371,7 +386,8 @@ class AIAnalyzer:
             }
 
         except Exception as e:
-            logger.error(f"Error assessing risk: {e}")
+            error_msg = self._sanitize_text(str(e))
+            logger.error(f"Error assessing risk: {error_msg}")
             return {
                 "overall_risk": "medium",
                 "perf_impact": "Unknown",
