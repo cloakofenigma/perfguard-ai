@@ -1,0 +1,7 @@
+anthropic==0.34.2  # Claude SDK
+pytest==8.3.3
+pytest-benchmark==4.0.0
+memory-profiler==1.0.1
+psutil==6.1.0
+radon==6.0.1  # Code complexity
+requests==2.32.3  # For GH API
