@@ -40,11 +40,10 @@ class AIAnalyzer:
         """
         Sanitize prompt to handle Unicode characters properly
         Ensures the prompt can be safely encoded and sent to AI APIs
+        Uses aggressive ASCII-only encoding to prevent any encoding errors
         """
         try:
-            # Encode to UTF-8 and decode back, replacing problematic characters
-            sanitized = prompt.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
-            # Replace common problematic Unicode characters with ASCII equivalents
+            # First, replace common Unicode characters with ASCII equivalents
             replacements = {
                 '\u201c': '"',  # Left double quote
                 '\u201d': '"',  # Right double quote
@@ -53,13 +52,24 @@ class AIAnalyzer:
                 '\u2013': '-',  # En dash
                 '\u2014': '--', # Em dash
                 '\u2026': '...', # Ellipsis
+                '\u00a0': ' ',  # Non-breaking space
+                '\u2022': '*',  # Bullet point
             }
+            sanitized = prompt
             for unicode_char, ascii_char in replacements.items():
                 sanitized = sanitized.replace(unicode_char, ascii_char)
+
+            # Then aggressively encode to ASCII, replacing any remaining non-ASCII chars
+            # This ensures NO Unicode characters can cause encoding errors
+            sanitized = sanitized.encode('ascii', errors='replace').decode('ascii')
+
             return sanitized
         except Exception as e:
-            logger.warning(f"Error sanitizing prompt: {e}, using original")
-            return prompt
+            # If even sanitization fails, use most aggressive approach
+            try:
+                return prompt.encode('ascii', errors='ignore').decode('ascii')
+            except:
+                return "Error: Could not sanitize prompt"
 
     def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
         """Try calling Anthropic Claude API with retries"""
