@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  useEffect(() => {
-    // Fetch from /report.json with error handling
-    fetch('/report.json')
+  const fetchData = useCallback(() => {
+    // Add timestamp to prevent caching
+    fetch(`/report.json?t=${Date.now()}`)
       .then(res => {
         if (!res.ok) throw new Error('Report not found');
         return res.json();
@@ -16,6 +18,8 @@ function App() {
       .then(reportData => {
         setData(reportData);
         setLoading(false);
+        setLastUpdated(new Date());
+        setError(null);
       })
       .catch(err => {
         console.error('Error loading report:', err);
@@ -38,8 +42,25 @@ function App() {
           }
         });
         setLoading(false);
+        setLastUpdated(new Date());
       });
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Auto-refresh every 30 seconds if enabled
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchData]);
 
   if (loading) {
     return (
@@ -52,11 +73,34 @@ function App() {
     );
   }
 
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchData();
+  };
+
   return (
     <div className="App">
       <header className="app-header">
         <h1>🛡️ PerfGuard AI</h1>
         <p>Performance Analysis Dashboard</p>
+        <div className="header-controls">
+          <button className="refresh-btn" onClick={handleRefresh} disabled={loading}>
+            🔄 Refresh
+          </button>
+          <label className="auto-refresh-toggle">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+            />
+            <span>Auto-refresh (30s)</span>
+          </label>
+          {lastUpdated && (
+            <span className="last-updated">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+        </div>
       </header>
       {error && <div className="error-notice">⚠️ {error}</div>}
       {data && <Dashboard data={data} />}

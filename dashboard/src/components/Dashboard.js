@@ -2,6 +2,7 @@ import React from 'react';
 import ScoreCard from './ScoreCard';
 import MetricsCard from './MetricsCard';
 import AIAnalysisCard from './AIAnalysisCard';
+import RecommendationsCard from './RecommendationsCard';
 
 const Dashboard = ({ data }) => {
   if (!data) return null;
@@ -19,6 +20,11 @@ const Dashboard = ({ data }) => {
 
       <AIAnalysisCard
         analysis={data.ai_analysis}
+      />
+
+      <RecommendationsCard
+        metrics={data.metrics}
+        score={data.performance_score}
       />
     </div>
   );
