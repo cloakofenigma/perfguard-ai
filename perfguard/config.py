@@ -15,7 +15,7 @@ class Config:
 
     # LLM Configuration
     CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Latest model
-    GEMINI_MODEL = "gemini-1.5-pro"  # Backup model
+    GEMINI_MODEL = "gemini-2.5-pro"  # Backup model (Google's latest)
     MAX_TOKENS = 2048
 
     # LLM Priority (tries in order: anthropic -> gemini)
