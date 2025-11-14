@@ -10,7 +10,7 @@ function App() {
 
   const fetchData = useCallback(() => {
     // Add timestamp to prevent caching
-    fetch(`/report.json?t=${Date.now()}`)
+    fetch(`${process.env.PUBLIC_URL}/report.json?t=${Date.now()}`)
       .then(res => {
         if (!res.ok) throw new Error('Report not found');
         return res.json();
