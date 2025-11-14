@@ -860,7 +860,7 @@ A: Configure in `config.py` or use `.perfguardignore` file (coming soon).
 
 <div align="center">
 
-**Made with ❤️ by developers, for developers**
+**Made with ❤️ by H347h3n5, for developers and testers**
 
 ⭐ Star us on GitHub if PerfGuard AI helps your team!
 
