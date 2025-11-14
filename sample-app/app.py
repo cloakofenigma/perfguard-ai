@@ -1,5 +1,5 @@
 """
-Sample Movie Application - IMDB-like Interface
+New Sample Movie Application - IMDB-like Interface
 Modern, responsive Flask application for PerfGuard AI testing
 """
 from flask import Flask, render_template, jsonify, request
