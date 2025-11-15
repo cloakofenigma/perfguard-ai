@@ -120,8 +120,8 @@ def health():
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
 
-  @app.route("/api/slow-search")
-  def slow_search():
+@app.route("/api/slow-search")
+def slow_search():
       """Intentionally slow search for demo"""
       movies = []
       for i in range(1000):  # O(n²) complexity
@@ -129,4 +129,3 @@ if __name__ == '__main__':
               if movie["title"]:
                   movies.append(movie)
       return jsonify(movies[:10])
-  
