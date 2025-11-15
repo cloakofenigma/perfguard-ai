@@ -1,0 +1,44 @@
+{
+  "baselines": {
+    "execution_time": {
+      "metrics": {
+        "current": 0.0
+      },
+      "timestamp": "2025-11-15T05:52:05.250031",
+      "version": 1
+    },
+    "memory_rss": {
+      "metrics": {
+        "current": 174.3828125
+      },
+      "timestamp": "2025-11-15T05:52:05.608180",
+      "version": 1
+    },
+    "cpu_utilization": {
+      "metrics": {
+        "current": 0.0
+      },
+      "timestamp": "2025-11-15T05:52:05.811548",
+      "version": 1
+    },
+    "io_latency": {
+      "metrics": {
+        "current": 0.11495905862727636
+      },
+      "timestamp": "2025-11-15T05:52:05.976101",
+      "version": 1
+    },
+    "complexity": {
+      "metrics": {
+        "current": 0,
+        "files": {}
+      },
+      "timestamp": "2025-11-15T05:52:05.976509",
+      "version": 1
+    }
+  },
+  "metadata": {
+    "last_updated": "2025-11-15T05:52:05.976514",
+    "total_baselines": 5
+  }
+}
