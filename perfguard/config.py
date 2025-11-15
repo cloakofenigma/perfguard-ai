@@ -19,7 +19,7 @@ class Config:
     MAX_TOKENS = 2048
 
     # LLM Priority (tries in order: anthropic -> gemini)
-    LLM_PROVIDERS = ["anthropic", "gemini"]
+    LLM_PROVIDERS = ["gemini", "anthropic"]
 
     # Performance Thresholds (as per spec)
     THRESHOLDS = {
