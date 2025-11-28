@@ -1,12 +1,11 @@
 """
 PerfGuard AI Analyzer
-Uses Claude 3.5 Sonnet or Google Gemini to analyze code changes and predict performance risks
+Uses Google Gemini to analyze code changes and predict performance risks
 """
 import os
 import json
 import time
 from typing import Dict, Any, List, Optional
-from anthropic import Anthropic, APIError, APITimeoutError, RateLimitError
 import google.generativeai as genai
 from config import config
 from logger import get_logger
@@ -16,24 +15,16 @@ logger = get_logger(__name__)
 
 
 class AIAnalyzer:
-    """Analyzes code changes using Claude AI or Google Gemini (with automatic fallback)"""
+    """Analyzes code changes using Google Gemini AI"""
 
     def __init__(self):
-        # Initialize available providers
-        self.anthropic_client = None
-        self.gemini_model = None
+        # Initialize Gemini
+        if not config.GOOGLE_API_KEY:
+            raise ValueError("GOOGLE_API_KEY environment variable is required")
 
-        if config.ANTHROPIC_API_KEY:
-            self.anthropic_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            logger.info("Anthropic Claude initialized")
-
-        if config.GOOGLE_API_KEY:
-            genai.configure(api_key=config.GOOGLE_API_KEY)
-            self.gemini_model = genai.GenerativeModel(config.GEMINI_MODEL)
-            logger.info("Google Gemini initialized")
-
-        if not self.anthropic_client and not self.gemini_model:
-            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or GOOGLE_API_KEY) is required")
+        genai.configure(api_key=config.GOOGLE_API_KEY)
+        self.gemini_model = genai.GenerativeModel(config.GEMINI_MODEL)
+        logger.info(f"Google Gemini initialized ({config.GEMINI_MODEL})")
 
         self.max_tokens = config.MAX_TOKENS
 
@@ -79,52 +70,8 @@ class AIAnalyzer:
         """Alias for _sanitize_text for backward compatibility"""
         return self._sanitize_text(prompt)
 
-    def _call_anthropic(self, prompt: str, max_retries: int) -> Optional[str]:
-        """Try calling Anthropic Claude API with retries"""
-        if not self.anthropic_client:
-            return None
-
-        # Sanitize prompt to handle Unicode characters
-        sanitized_prompt = self._sanitize_prompt(prompt)
-
-        last_error = None
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Calling Claude API (attempt {attempt + 1}/{max_retries})...")
-
-                response = self.anthropic_client.messages.create(
-                    model=config.CLAUDE_MODEL,
-                    max_tokens=self.max_tokens,
-                    messages=[{"role": "user", "content": sanitized_prompt}],
-                    timeout=config.API_TIMEOUT
-                )
-
-                content = response.content[0].text
-                logger.info(f"✅ Received response from Claude ({len(content)} chars)")
-                return content
-
-            except (RateLimitError, APITimeoutError, APIError) as e:
-                last_error = e
-                error_msg = self._sanitize_text(str(e))
-                logger.warning(f"Claude API error (attempt {attempt + 1}): {error_msg}")
-                if attempt < max_retries - 1:
-                    time.sleep(config.API_RETRY_DELAY * (attempt + 1))
-
-            except Exception as e:
-                last_error = e
-                error_msg = self._sanitize_text(str(e))
-                logger.error(f"Unexpected Claude error: {error_msg}")
-                break
-
-        error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
-        logger.error(f"❌ Claude API failed after {max_retries} attempts: {error_msg}")
-        return None
-
-    def _call_gemini(self, prompt: str, max_retries: int) -> Optional[str]:
-        """Try calling Google Gemini API with retries"""
-        if not self.gemini_model:
-            return None
-
+    def _call_gemini(self, prompt: str, max_retries: int) -> str:
+        """Call Google Gemini API with retries and safety settings"""
         # Sanitize prompt to handle Unicode characters
         sanitized_prompt = self._sanitize_prompt(prompt)
 
@@ -139,10 +86,60 @@ class AIAnalyzer:
                     "temperature": 0.1,  # Low temperature for consistent analysis
                 }
 
+                # Configure safety settings to be permissive for code analysis
+                safety_settings = [
+                    {
+                        "category": "HARM_CATEGORY_HARASSMENT",
+                        "threshold": "BLOCK_NONE",
+                    },
+                    {
+                        "category": "HARM_CATEGORY_HATE_SPEECH",
+                        "threshold": "BLOCK_NONE",
+                    },
+                    {
+                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        "threshold": "BLOCK_NONE",
+                    },
+                    {
+                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        "threshold": "BLOCK_NONE",
+                    },
+                ]
+
                 response = self.gemini_model.generate_content(
                     sanitized_prompt,
-                    generation_config=generation_config
+                    generation_config=generation_config,
+                    safety_settings=safety_settings
                 )
+
+                # Check if response was blocked or has no content
+                if not response.candidates:
+                    logger.warning("No candidates returned by Gemini API")
+                    raise Exception("Response blocked: no candidates returned")
+
+                # Check finish_reason
+                candidate = response.candidates[0]
+                finish_reason = candidate.finish_reason
+
+                # finish_reason values: 0=UNSPECIFIED, 1=STOP(success), 2=MAX_TOKENS, 3=SAFETY, 4=RECITATION, 5=OTHER
+                if finish_reason != 1:  # 1 = STOP (normal completion)
+                    reason_map = {
+                        0: "UNSPECIFIED",
+                        2: "MAX_TOKENS (content too long)",
+                        3: "SAFETY (blocked by safety filters)",
+                        4: "RECITATION (blocked due to recitation)",
+                        5: "OTHER"
+                    }
+                    reason_text = reason_map.get(finish_reason, f"Unknown ({finish_reason})")
+                    logger.warning(f"Response finished with reason: {reason_text}")
+
+                    # For MAX_TOKENS, we might still have partial content
+                    if finish_reason == 2 and hasattr(candidate.content, 'parts') and candidate.content.parts:
+                        content = candidate.content.parts[0].text
+                        logger.info(f"✅ Received partial response from Gemini ({len(content)} chars) - MAX_TOKENS reached")
+                        return content
+
+                    raise Exception(f"Response blocked or incomplete: {reason_text}")
 
                 content = response.text
                 logger.info(f"✅ Received response from Gemini ({len(content)} chars)")
@@ -158,105 +155,160 @@ class AIAnalyzer:
                     logger.warning(f"Gemini API error (attempt {attempt + 1}): {error_msg}")
                     if attempt < max_retries - 1:
                         time.sleep(config.API_RETRY_DELAY * (attempt + 1))
+                elif 'max_tokens' in error_str or 'finish_reason' in error_str:
+                    logger.warning(f"Gemini content issue (attempt {attempt + 1}): {error_msg}")
+                    # Don't retry for content issues, break immediately
+                    break
                 else:
                     logger.error(f"Unexpected Gemini error: {error_msg}")
-                    break
+                    if attempt < max_retries - 1:
+                        time.sleep(config.API_RETRY_DELAY)
 
         error_msg = self._sanitize_text(str(last_error)) if last_error else "Unknown error"
-        logger.error(f"❌ Gemini API failed after {max_retries} attempts: {error_msg}")
-        return None
+        raise Exception(f"Gemini API failed after {max_retries} attempts: {error_msg}")
 
-    def _call_llm_with_fallback(self, prompt: str, max_retries: int = None) -> str:
+    def _call_llm(self, prompt: str, max_retries: int = None) -> str:
         """
-        Call LLM API with automatic fallback to backup provider
-
-        Tries providers in order: Anthropic -> Google Gemini
+        Call Gemini LLM API with retries
 
         Args:
             prompt: The prompt to send
-            max_retries: Maximum retry attempts per provider (defaults to config)
+            max_retries: Maximum retry attempts (defaults to config)
 
         Returns:
             Response text from LLM
 
         Raises:
-            Exception: If all providers fail
+            Exception: If API call fails
         """
         if max_retries is None:
             max_retries = config.API_RETRY_ATTEMPTS
 
-        # Try Anthropic first
-        if self.anthropic_client:
-            logger.info("🔄 Trying Anthropic Claude...")
-            result = self._call_anthropic(prompt, max_retries)
-            if result:
-                return result
-
-        # Fallback to Google Gemini
-        if self.gemini_model:
-            logger.info("🔄 Falling back to Google Gemini...")
-            result = self._call_gemini(prompt, max_retries)
-            if result:
-                return result
-
-        # All providers failed
-        raise Exception(f"All LLM providers failed after {max_retries} attempts each")
+        return self._call_gemini(prompt, max_retries)
 
     def _extract_json_from_response(self, response_text: str) -> Dict[str, Any]:
         """
-        Extract JSON from Claude's response (handles markdown code blocks)
+        Extract JSON from Gemini's response (handles markdown code blocks and various formats)
 
         Args:
-            response_text: Raw response from Claude
+            response_text: Raw response from Gemini
 
         Returns:
             Parsed JSON dictionary
         """
+        if not response_text or not response_text.strip():
+            logger.error("Empty response from Gemini")
+            return self._get_default_response()
+
+        # Try direct JSON parse first
         try:
-            # Try direct JSON parse first
             return json.loads(response_text)
         except json.JSONDecodeError:
             pass
 
-        # Try extracting from code blocks
+        # Try extracting from markdown code blocks
         try:
-            # Look for ```json or ``` blocks
+            # Look for ```json blocks
             if "```json" in response_text:
                 start = response_text.find("```json") + 7
                 end = response_text.find("```", start)
-                json_str = response_text[start:end].strip()
-                return json.loads(json_str)
+                if end != -1:
+                    json_str = response_text[start:end].strip()
+                    return json.loads(json_str)
+
+            # Look for generic ``` blocks
             elif "```" in response_text:
                 start = response_text.find("```") + 3
+                # Skip language identifier if present
+                newline_pos = response_text.find('\n', start)
+                if newline_pos != -1:
+                    start = newline_pos + 1
                 end = response_text.find("```", start)
-                json_str = response_text[start:end].strip()
-                return json.loads(json_str)
-        except:
-            pass
+                if end != -1:
+                    json_str = response_text[start:end].strip()
+                    return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON in code block failed to parse: {e}")
+        except Exception as e:
+            logger.warning(f"Error extracting from code block: {e}")
 
-        # Try finding JSON-like structure
+        # Try finding JSON object with balanced braces
         try:
             start = response_text.find('{')
-            end = response_text.rfind('}') + 1
-            if start != -1 and end > start:
-                json_str = response_text[start:end]
-                return json.loads(json_str)
-        except:
-            pass
+            if start != -1:
+                # Find matching closing brace
+                brace_count = 0
+                end = start
+                for i in range(start, len(response_text)):
+                    if response_text[i] == '{':
+                        brace_count += 1
+                    elif response_text[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end = i + 1
+                            break
 
-        # Last resort: return structured error
-        logger.error("Could not extract JSON from response")
-        logger.debug(f"Response text: {response_text[:500]}")
+                if end > start:
+                    json_str = response_text[start:end]
+                    return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON extraction with brace matching failed: {e}")
+        except Exception as e:
+            logger.warning(f"Error finding JSON structure: {e}")
 
+        # Last resort: log full response and return default
+        logger.error("Could not extract JSON from response after all attempts")
+        logger.error(f"Full response text:\n{response_text[:1000]}")
+
+        return self._get_default_response()
+
+    def _get_default_response(self) -> Dict[str, Any]:
+        """Return default response structure when parsing fails"""
         return {
-            "error": "Failed to parse JSON from response",
-            "raw_response": response_text[:500],
             "risk_score": 0.5,  # Default medium risk
             "critical_paths": [],
-            "suggested_benchmarks": [],
-            "reasoning": "Could not parse AI response",
-            "suggestions": ["Review changes manually"]
+            "suggested_benchmarks": ["test_general_performance"],
+            "reasoning": "Could not parse AI response - defaulting to medium risk",
+            "suggestions": ["Review changes manually", "Run comprehensive performance tests"]
         }
+
+    def _smart_truncate_diff(self, diff: str, max_chars: int = 5000) -> str:
+        """
+        Intelligently truncate diff to focus on actual code changes
+
+        Args:
+            diff: Full git diff
+            max_chars: Maximum characters to return
+
+        Returns:
+            Truncated diff focusing on code changes
+        """
+        if len(diff) <= max_chars:
+            return diff
+
+        # Try to extract just the meaningful changes (added/removed lines)
+        lines = diff.split('\n')
+        important_lines = []
+        char_count = 0
+
+        for line in lines:
+            # Include file headers and actual changes
+            if (line.startswith('diff --git') or
+                line.startswith('+++') or
+                line.startswith('---') or
+                line.startswith('+') or
+                line.startswith('-') or
+                line.startswith('@@')):
+
+                line_len = len(line) + 1  # +1 for newline
+                if char_count + line_len > max_chars:
+                    break
+                important_lines.append(line)
+                char_count += line_len
+
+        truncated = '\n'.join(important_lines)
+        logger.info(f"Truncated diff from {len(diff)} to {len(truncated)} chars")
+        return truncated
 
     def analyze_diff(self, diff: str, changed_files: List[str] = None) -> Dict[str, Any]:
         """
@@ -282,11 +334,14 @@ class AIAnalyzer:
             }
 
         try:
-            # Use the diff analysis prompt
-            prompt = get_prompt("diff_analysis", diff=diff[:10000])  # Limit diff size
+            # Intelligently truncate diff to focus on important changes
+            truncated_diff = self._smart_truncate_diff(diff, max_chars=5000)
 
-            # Call Claude with retry
-            response_text = self._call_llm_with_fallback(prompt)
+            # Use the diff analysis prompt
+            prompt = get_prompt("diff_analysis", diff=truncated_diff)
+
+            # Call Gemini with retry
+            response_text = self._call_llm(prompt)
 
             # Extract JSON
             result = self._extract_json_from_response(response_text)
@@ -337,7 +392,7 @@ class AIAnalyzer:
                 risk_score=risk_score
             )
 
-            response_text = self._call_llm_with_fallback(prompt)
+            response_text = self._call_llm(prompt)
             result = self._extract_json_from_response(response_text)
 
             adjusted_score = result.get("adjusted_score", raw_score)
@@ -382,7 +437,7 @@ class AIAnalyzer:
                 history=json.dumps(performance_history or {}, indent=2)
             )
 
-            response_text = self._call_llm_with_fallback(prompt)
+            response_text = self._call_llm(prompt)
             result = self._extract_json_from_response(response_text)
 
             return {
@@ -430,7 +485,7 @@ class AIAnalyzer:
 
 
 # Convenience function for backwards compatibility
-def analyze_diff_with_claude(diff: str) -> Dict[str, Any]:
+def analyze_diff_with_ai(diff: str) -> Dict[str, Any]:
     """
     Convenience function to analyze diff
 

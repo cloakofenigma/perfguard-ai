@@ -9,17 +9,12 @@ class Config:
     """Main configuration class for PerfGuard AI"""
 
     # API Configuration
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GITHUB_TOKEN = os.getenv("GH_TOKEN")
 
     # LLM Configuration
-    CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Latest model
-    GEMINI_MODEL = "gemini-2.5-pro"  # Backup model (Google's latest)
-    MAX_TOKENS = 2048
-
-    # LLM Priority (tries in order: anthropic -> gemini)
-    LLM_PROVIDERS = ["anthropic", "gemini"]
+    GEMINI_MODEL = "gemini-2.5-pro"  # Google Gemini as primary LLM
+    MAX_TOKENS = 4096  # Increased for better response generation
 
     # Performance Thresholds (as per spec)
     THRESHOLDS = {
@@ -64,6 +59,10 @@ class Config:
     DEFAULT_BASE_BRANCH = "main"
     DIFF_CONTEXT_LINES = 3
 
+    # Application Scope Configuration
+    # Only analyze files within this directory (relative to repo root)
+    APPLICATION_PATH = "sample-app"  # Analyze only the application code, not PerfGuard itself
+
     # Dashboard Configuration
     DASHBOARD_PORT = 3000
     API_PORT = 5000
@@ -71,8 +70,8 @@ class Config:
     @classmethod
     def validate(cls) -> bool:
         """Validate configuration"""
-        if not cls.ANTHROPIC_API_KEY and not cls.GOOGLE_API_KEY:
-            raise ValueError("At least one AI API key (ANTHROPIC_API_KEY or GOOGLE_API_KEY) is required")
+        if not cls.GOOGLE_API_KEY:
+            raise ValueError("GOOGLE_API_KEY environment variable is required")
 
         # Validate weights sum to 100
         total_weight = sum(cls.WEIGHTS.values())
@@ -98,7 +97,7 @@ class Config:
             "thresholds": cls.THRESHOLDS,
             "weights": cls.WEIGHTS,
             "min_passing_score": cls.MIN_PASSING_SCORE,
-            "model": cls.CLAUDE_MODEL
+            "model": cls.GEMINI_MODEL
         }
 
 

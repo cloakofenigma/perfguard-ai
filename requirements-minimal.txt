@@ -2,9 +2,7 @@
 # Use this if full requirements.txt is too slow
 
 # Core AI & API
-anthropic>=0.39.0
-google-generativeai>=0.3.0
-httpx>=0.27.0
+google-generativeai>=0.3.0  # Google Gemini API SDK (primary LLM)
 requests==2.32.3
 
 # Testing & Benchmarking

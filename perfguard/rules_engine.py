@@ -258,13 +258,24 @@ def calculate_score(metrics: Dict[str, Any], ai_response: Dict[str, Any]) -> Dic
 
         logger.info(f"Final Score: {final_score}/100 - {verdict}")
 
+        # Enrich metrics with scores for dashboard
+        enriched_metrics = {}
+        for metric_name, metric_data in metrics.items():
+            if isinstance(metric_data, dict):
+                enriched_metrics[metric_name] = {
+                    **metric_data,
+                    "score": scores.get(metric_name, 100)
+                }
+            else:
+                enriched_metrics[metric_name] = metric_data
+
         return {
             "performance_score": final_score,
             "verdict": verdict,
             "block_merge": block_merge,
             "scores": scores,
             "details": details,
-            "metrics": metrics,
+            "metrics": enriched_metrics,
             "ai_analysis": {
                 "risk_score": ai_risk,
                 "critical_paths": ai_response.get("critical_paths", []),
