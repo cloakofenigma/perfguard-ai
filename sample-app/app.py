@@ -11,6 +11,64 @@ from slow_function import (
     fetch_user_ratings_slow
 )
 
+"""Test script"""
+import time
+  import hashlib
+
+  @app.route('/slow-endpoint')
+  def slow_endpoint():
+      """Intentionally slow endpoint for testing PerfGuard"""
+
+      # CPU-intensive operation
+      result = 0
+      for i in range(1000000):
+          result += i ** 2
+
+      # Memory-intensive operation
+      large_list = [str(i) * 100 for i in range(10000)]
+
+      # Blocking I/O operation
+      time.sleep(2)
+
+      # Inefficient hashing
+      hash_result = ""
+      for i in range(1000):
+          hash_result = hashlib.sha256(str(i).encode()).hexdigest()
+
+      return jsonify({
+          'message': 'This endpoint is intentionally slow',
+          'result': result,
+          'hash': hash_result,
+          'list_size': len(large_list)
+      })
+
+  Or, to make an existing endpoint slower, modify the /api/data endpoint:
+
+  @app.route('/api/data')
+  def get_data():
+      # Add these inefficient operations
+      time.sleep(1.5)  # Blocking delay
+
+      # Inefficient list operations
+      waste_list = []
+      for i in range(100000):
+          waste_list.append(i)
+          if i % 2 == 0:
+              waste_list.remove(i)
+
+      # Original code
+      data = {
+          'users': [
+              {'id': 1, 'name': 'Alice'},
+              {'id': 2, 'name': 'Bob'}
+          ]
+      }
+      return jsonify(data)
+
+"""Test script end"""
+
+
+
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
