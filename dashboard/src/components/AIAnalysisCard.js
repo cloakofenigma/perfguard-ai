@@ -35,15 +35,36 @@ const AIAnalysisCard = ({ analysis }) => {
         <div className="card-icon">🤖</div>
       </div>
 
+      <p style={{
+        fontSize: '0.875rem',
+        color: 'var(--text-muted)',
+        marginBottom: '1rem',
+        paddingLeft: '0.5rem'
+      }}>
+        Google Gemini 2.5 Pro analysis of your code changes
+      </p>
+
       <div className="ai-content">
         <div className="ai-risk">
-          <span style={{ color: 'var(--text-secondary)' }}>Risk Score:</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Performance Risk:</span>
           <span className={`risk-badge ${risk.class}`}>{risk.level}</span>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             ({(riskScore * 100).toFixed(0)}%)
           </span>
         </div>
 
+        <div style={{
+          fontSize: '0.75rem',
+          color: 'var(--text-muted)',
+          marginTop: '0.25rem',
+          marginBottom: '1rem'
+        }}>
+          Lower is better • Measures potential performance degradation
+        </div>
+
+        <h4 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+          AI Reasoning:
+        </h4>
         <div className="ai-reasoning">
           {reasoning}
         </div>

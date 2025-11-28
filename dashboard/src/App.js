@@ -9,40 +9,67 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchData = useCallback(() => {
+    console.log('[PerfGuard] Fetching report.json...');
+
     // Add timestamp to prevent caching
-    fetch(`/report.json?t=${Date.now()}`)
+    const url = `/report.json?t=${Date.now()}`;
+    console.log('[PerfGuard] Fetch URL:', url);
+
+    fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    })
       .then(res => {
-        if (!res.ok) throw new Error('Report not found');
+        console.log('[PerfGuard] Response status:', res.status);
+        console.log('[PerfGuard] Response headers:', res.headers.get('content-type'));
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error(`Expected JSON, got ${contentType}`);
+        }
+
         return res.json();
       })
       .then(reportData => {
+        console.log('[PerfGuard] Report data loaded:', {
+          previous_score: reportData.previous_score,
+          current_score: reportData.current_score,
+          delta_score: reportData.delta_score,
+          performance_score: reportData.performance_score
+        });
+
+        // Validate required fields
+        if (typeof reportData.performance_score !== 'number') {
+          throw new Error('Invalid report data: missing performance_score');
+        }
+
         setData(reportData);
         setLoading(false);
         setLastUpdated(new Date());
         setError(null);
+        console.log('[PerfGuard] Dashboard updated successfully!');
       })
       .catch(err => {
-        console.error('Error loading report:', err);
-        setError(err.message);
-        // Set default mock data on error
-        setData({
-          performance_score: 85,
-          verdict: "PASS",
-          ai_analysis: {
-            risk_score: 0.3,
-            reasoning: "No data available. Run PerfGuard AI to generate report."
-          },
-          metrics: {
-            execution_time: { score: 100, current: 0.35, baseline: 0.40, change: -12.5 },
-            memory_rss: { score: 95, current: 58.5, baseline: 60.2, change: -2.8 },
-            cpu_utilization: { score: 100, current: 0.15, baseline: 0.20, change: -25.0 },
-            io_latency: { score: 90, current: 0.35, baseline: 0.30, change: 16.7 },
-            complexity: { score: 100, current: 45, baseline: 45, change: 0 },
-            ai_risk: { score: 70, risk_score: 0.3 }
-          }
+        console.error('[PerfGuard] Error loading report:', err);
+        console.error('[PerfGuard] Error details:', {
+          message: err.message,
+          stack: err.stack
         });
+
+        setError(`Failed to load report: ${err.message}`);
         setLoading(false);
         setLastUpdated(new Date());
+
+        // Don't set mock data - show error state instead
+        setData(null);
       });
   }, []);
 
@@ -102,8 +129,37 @@ function App() {
           )}
         </div>
       </header>
-      {error && <div className="error-notice">⚠️ {error}</div>}
-      {data && <Dashboard data={data} />}
+      {error && (
+        <div className="error-notice" style={{
+          padding: '1.5rem',
+          margin: '1rem auto',
+          maxWidth: '800px',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '2px solid #ef4444',
+          borderRadius: '0.5rem',
+          color: '#fca5a5'
+        }}>
+          <h3 style={{marginBottom: '0.5rem'}}>⚠️ Report Load Failed</h3>
+          <p style={{marginBottom: '1rem'}}>{error}</p>
+          <div style={{fontSize: '0.875rem', color: '#f87171'}}>
+            <p><strong>Troubleshooting:</strong></p>
+            <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem'}}>
+              <li>Run: <code>./venv/bin/python3 perfguard/main.py</code></li>
+              <li>Verify: <code>ls -lh dashboard/public/report.json</code></li>
+              <li>Check browser console (F12) for detailed errors</li>
+              <li>Try hard refresh: Ctrl+Shift+R</li>
+            </ol>
+          </div>
+        </div>
+      )}
+      {data ? (
+        <Dashboard data={data} />
+      ) : !loading && !error && (
+        <div style={{textAlign: 'center', padding: '3rem', color: 'var(--text-muted)'}}>
+          <h2>No Data Available</h2>
+          <p>Run PerfGuard AI to generate a performance report.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,13 +15,14 @@ Stop slow code from reaching production. PerfGuard AI automatically analyzes eve
 PerfGuard AI is a CI/CD-integrated, GenAI-powered code quality gate that:
 
 - ✨ **Auto-generates** performance benchmarks per PR
-- 🧠 **AI-powered** smart test selection with dual LLM support (Claude + Gemini)
-- 📊 **Single score** (0–100) for easy decision making
+- 🧠 **AI-powered** smart test selection using Google Gemini 2.5 Pro
+- 📊 **Three-score tracking** (Previous, Current, New Code) for detailed analysis
 - 🚫 **Blocks merge** if score < threshold
 - ⚡ **Fully automated** in GitHub Actions
 - 📱 **Interactive Dashboard** with auto-refresh and score improvement recommendations
 - 🎬 **Production-ready** with sample application included
-- 🛡️ **Reliable** with fallback providers and robust error handling
+- 🛡️ **Reliable** with robust error handling and Unicode-safe processing
+- 🎯 **Application-focused** analyzes only your app code, not the tool itself (configurable via `APPLICATION_PATH`)
 
 ---
 
@@ -30,6 +31,7 @@ PerfGuard AI is a CI/CD-integrated, GenAI-powered code quality gate that:
 - [Features](#-features)
 - [Architecture](#-architecture)
 - [Quick Start](#-quick-start)
+- [Application Scope](#-application-scope)
 - [Sample Application](#-sample-application)
 - [Interactive Dashboard](#-interactive-dashboard)
 - [Performance Metrics](#-performance-metrics)
@@ -49,7 +51,8 @@ PerfGuard AI is a CI/CD-integrated, GenAI-powered code quality gate that:
 ## ✨ Features
 
 ### Core Capabilities
-- **AI-Driven Analysis**: Uses Claude 3.5 Sonnet with Google Gemini 2.5 Pro as fallback for intelligent performance predictions
+- **AI-Driven Analysis**: Powered by Google Gemini 2.5 Pro for intelligent performance predictions
+- **Three-Score Tracking**: Displays Previous, Current, and New Code scores for comprehensive analysis
 - **Comprehensive Metrics**: Tracks 6 key performance indicators with real-time monitoring
 - **Baseline Comparison**: Automatically establishes and compares against baselines
 - **Smart Test Selection**: AI suggests which tests to run based on code changes
@@ -73,8 +76,8 @@ PerfGuard AI is a CI/CD-integrated, GenAI-powered code quality gate that:
 ```
 perfguard-ai/
 ├── perfguard/               # Core AI engine
-│   ├── main.py             # Main orchestration
-│   ├── ai_analyzer.py      # Multi-LLM integration (Claude + Gemini)
+│   ├── main.py             # Main orchestration & three-score tracking
+│   ├── ai_analyzer.py      # Google Gemini 2.5 Pro integration
 │   ├── metrics_collector.py # Performance measurement
 │   ├── rules_engine.py     # Scoring calculation
 │   ├── storage.py          # Baseline management
@@ -123,9 +126,8 @@ perfguard-ai/
 - Python 3.11+
 - Node.js 18+ (for dashboard)
 - Git
-- **AI API Keys** (at least one required):
-  - Anthropic API key (Claude 3.5 Sonnet) - Primary
-  - Google API key (Gemini 2.5 Pro) - Fallback
+- **Google API Key** (required):
+  - Google API key for Gemini 2.5 Pro
 - GitHub repository
 
 ### Installation
@@ -150,10 +152,7 @@ cd ..
 
 4. **Set up environment variables**
 ```bash
-# Primary LLM (recommended)
-export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
-
-# Backup LLM (optional but recommended)
+# Google Gemini API key (required)
 export GOOGLE_API_KEY="your-google-api-key-here"
 
 # GitHub token (optional, for PR comments)
@@ -164,8 +163,7 @@ export GH_TOKEN="ghp-your-github-token"
 
 Add secrets to your repository:
 - Go to Settings → Secrets and variables → Actions
-- Add `ANTHROPIC_API_KEY` with your Claude API key
-- Add `GOOGLE_API_KEY` with your Gemini API key (recommended)
+- Add `GOOGLE_API_KEY` with your Google Gemini API key (required)
 - GitHub token is automatically available as `GITHUB_TOKEN`
 
 6. **Enable GitHub Pages (for dashboard)**
@@ -179,6 +177,7 @@ Add secrets to your repository:
 
 Want to see it in action immediately? Here's the fastest way:
 
+**Option 1: Complete Automated Flow (Recommended)**
 ```bash
 # 1. Clone and setup (30 seconds)
 git clone https://github.com/cloakofenigma/perfguard-ai.git
@@ -186,23 +185,97 @@ cd perfguard-ai
 pip install -r requirements.txt
 
 # 2. Set API key (10 seconds)
-export ANTHROPIC_API_KEY="sk-ant-your-key"  # or GOOGLE_API_KEY
+export GOOGLE_API_KEY="your-google-api-key"
 
-# 3. Run PerfGuard on sample app (60 seconds)
-python perfguard/main.py
-
-# 4. View results (20 seconds)
-cat perfguard_report.md
-cp perfguard_score.json dashboard/public/report.json
-cd dashboard && npm install && npm start
-# Opens dashboard at http://localhost:3000
+# 3. Run complete flow (90 seconds)
+./perfguard_complete.sh
+# Select option 1 for Full Flow (Analysis + Verify + Dashboard)
 ```
 
-You'll see:
-- ✅ Performance score with verdict
+**Option 2: Step-by-Step**
+```bash
+# 1. Clone and setup
+git clone https://github.com/cloakofenigma/perfguard-ai.git
+cd perfguard-ai
+pip install -r requirements.txt
+
+# 2. Set API key
+export GOOGLE_API_KEY="your-google-api-key"
+
+# 3. Run verification (runs analysis + verifies output)
+./verify_dashboard.sh
+
+# 4. Start dashboard
+./start_dashboard.sh
+# Opens at http://localhost:3000
+```
+
+**What You'll See:**
+- ✅ Three performance scores (Previous, Current, New Code) with verdict
 - 📊 6 metrics analyzed (execution, memory, CPU, I/O, complexity, AI risk)
-- 🤖 AI insights from Claude/Gemini
+- 🤖 AI insights from Google Gemini 2.5 Pro
 - 💡 Recommendations to improve your score
+- 🔍 Browser console logs with `[PerfGuard]` prefix for debugging
+- 📡 Server terminal logs with `[Proxy]` prefix for request monitoring
+
+---
+
+## 🎯 Application Scope
+
+**IMPORTANT:** PerfGuard AI analyzes **only your application code**, not the PerfGuard tool itself.
+
+### Current Configuration
+
+```python
+# In perfguard/config.py
+APPLICATION_PATH = "sample-app"  # Only analyze this directory
+```
+
+### Why This Matters
+
+✅ **With Scoping (Current Behavior):**
+- Analyzes only files in `sample-app/` directory
+- Changes to `perfguard/` or `dashboard/` are **ignored**
+- Accurate results focused on your application
+- No polluted metrics from tool code
+
+❌ **Without Scoping (Old Behavior):**
+- Would analyze entire repository including tool code
+- Misleading scores mixing app and tool performance
+- Confusing results irrelevant to your application
+
+### What Gets Analyzed
+
+```bash
+# When you edit sample-app files
+git add sample-app/app.py
+git commit -m "Optimize movie search"
+python perfguard/main.py
+# ✅ Analyzes: sample-app/app.py changes
+
+# When you edit PerfGuard tool files
+git add perfguard/ai_analyzer.py
+git commit -m "Update tool"
+python perfguard/main.py
+# ✅ Result: "No changes detected in sample-app/"
+```
+
+### Changing the Application Path
+
+To analyze a different application, edit `perfguard/config.py`:
+
+```python
+# Example: Analyze your own API
+APPLICATION_PATH = "my-api/src"
+
+# Example: Analyze a web app
+APPLICATION_PATH = "frontend"
+
+# Example: Analyze a microservice
+APPLICATION_PATH = "services/user-service"
+```
+
+**See [APPLICATION_SCOPE.md](APPLICATION_SCOPE.md) for detailed documentation.**
 
 ---
 
@@ -259,11 +332,11 @@ PerfGuard AI includes a modern React dashboard with real-time monitoring and act
 ### Dashboard Features
 
 - **🔄 Auto-Refresh**: Automatically updates every 30 seconds with latest performance data
-- **📈 Score Visualization**: Large, color-coded score display with verdict status
+- **📈 Three-Score Display**: Visual comparison of Previous, Current, and New Code scores with trend indicators
 - **📊 Metrics Breakdown**: Detailed view of all 6 performance metrics with trend indicators
-- **🤖 AI Analysis**: Claude/Gemini insights on performance risks and critical paths
+- **🤖 AI Analysis**: Google Gemini 2.5 Pro insights on performance risks and critical paths
 - **💡 Smart Recommendations**: Actionable suggestions to improve your score, with severity levels and impact estimates
-- **📉 Score History**: Track performance trends over time
+- **📉 Score History**: Track performance trends over time with baseline comparison
 
 ### Running the Dashboard
 
@@ -403,34 +476,28 @@ Default: **80/100** (configurable in `config.py`)
 ### Environment Variables
 
 ```bash
-# AI API Keys (at least one required)
-ANTHROPIC_API_KEY="sk-ant-..."  # Primary: Claude 3.5 Sonnet
-GOOGLE_API_KEY="..."            # Fallback: Gemini 2.5 Pro
+# AI API Key (required)
+GOOGLE_API_KEY="..."            # Google Gemini 2.5 Pro
 
 # Optional
 GH_TOKEN="ghp_..."              # GitHub token for PR comments
 PERFGUARD_ENV="production"      # or "development"
 ```
 
-### LLM Fallback Strategy
+### LLM Configuration
 
-PerfGuard AI uses a multi-provider approach for reliability:
+PerfGuard AI uses Google Gemini 2.5 Pro for AI-powered analysis:
 
-1. **Primary**: Anthropic Claude 3.5 Sonnet (`claude-3-5-sonnet-20241022`)
-2. **Fallback**: Google Gemini 2.5 Pro (`gemini-2.5-pro`)
-
-If the primary provider fails (rate limits, API issues), it automatically switches to the backup.
+- **Model**: Google Gemini 2.5 Pro (`gemini-2.5-pro`)
+- **Purpose**: Intelligent performance risk prediction and code analysis
+- **Features**: Advanced code understanding, performance impact assessment, actionable recommendations
 
 ### Config File (`perfguard/config.py`)
 
 ```python
 # LLM Configuration
-CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Latest model
-GEMINI_MODEL = "gemini-2.5-pro"              # Backup model (Google's latest)
+GEMINI_MODEL = "gemini-2.5-pro"  # Google's latest model
 MAX_TOKENS = 2048
-
-# LLM Priority (tries in order)
-LLM_PROVIDERS = ["anthropic", "gemini"]
 
 # Performance thresholds
 THRESHOLDS = {
@@ -465,32 +532,99 @@ API_TIMEOUT = 30  # seconds
 
 ## 💻 Usage
 
+### Complete Workflow (Automated)
+
+**🎯 Master Script** - Menu-driven interface for all operations:
+```bash
+export GOOGLE_API_KEY="your-api-key"
+./perfguard_complete.sh
+
+# Options:
+# 1) Run Analysis + Verify + Start Dashboard (Full Flow)
+# 2) Run Analysis Only
+# 3) Verify Existing Reports
+# 4) Start Dashboard (requires existing report)
+# 5) Clean All Reports and Start Fresh
+```
+
 ### Local Testing
 
+**Option 1: Full Verification Flow (Recommended)**
+```bash
+export GOOGLE_API_KEY="your-api-key"
+
+# Run complete verification (cleans old reports, runs analysis, verifies)
+./verify_dashboard.sh
+
+# Start dashboard with pre-flight checks
+./start_dashboard.sh
+```
+
+**Option 2: Manual Steps**
 ```bash
 # Run PerfGuard on current changes
+export GOOGLE_API_KEY="your-api-key"
 python perfguard/main.py
+
+# Files are automatically saved to both:
+#   - perfguard_score.json (root)
+#   - dashboard/public/report.json (dashboard)
 
 # View results in terminal
 cat perfguard_report.md
 
-# Or view in dashboard
-cp perfguard_score.json dashboard/public/report.json
+# Start dashboard
 cd dashboard && npm start
 ```
 
 ### Dashboard Usage
 
 ```bash
-# Start the dashboard
+# Quick start (recommended - checks if report exists first)
+./start_dashboard.sh
+
+# Or manual start
 cd dashboard
 npm start
 
-# Auto-refresh is enabled by default (30s interval)
-# Use the refresh button for immediate updates
-# Toggle auto-refresh on/off as needed
+# Features:
+# - Auto-refresh enabled by default (30s interval)
+# - Manual refresh button for immediate updates
+# - Toggle auto-refresh on/off as needed
+# - View at: http://localhost:3000
+# - Browser console shows [PerfGuard] logs
+# - Server terminal shows [Proxy] logs
+```
 
-# View at: http://localhost:3000
+### Debugging
+
+**Browser Console (F12):**
+```
+[PerfGuard] Fetching report.json...
+[PerfGuard] Response status: 200
+[PerfGuard] Report data loaded: {previous_score: 66.2, current_score: 79.3, ...}
+[PerfGuard] Dashboard updated successfully!
+```
+
+**Server Terminal:**
+```
+[Proxy] Request for /report.json
+[Proxy] File found, size: 3656 bytes
+[Proxy] Serving scores: { previous: 66.2, current: 79.3, delta: 76.0 }
+```
+
+**Troubleshooting:**
+```bash
+# Verify everything is working
+./verify_dashboard.sh
+
+# Check current scores
+jq '{previous_score, current_score, delta_score}' dashboard/public/report.json
+
+# Clean and restart
+rm -f dashboard/public/report.json perfguard_score.json
+python perfguard/main.py
+./start_dashboard.sh
 ```
 
 ### In Pull Requests
@@ -515,9 +649,11 @@ pytest sample-app/tests/test_perf.py::test_api_performance -v
 # With benchmarking
 pytest -m perf --benchmark-only
 
-# Update dashboard with results
+# Update dashboard with results (automatic save to both locations)
 python perfguard/main.py
-cp perfguard_score.json dashboard/public/report.json
+# Files saved to:
+#   - perfguard_score.json (root)
+#   - dashboard/public/report.json (dashboard)
 ```
 
 ### CI/CD Integration
@@ -734,32 +870,61 @@ bandit -r perfguard/
 
 ## 🎉 Recent Updates
 
-### Version 2.0 Features (Latest)
+### Version 3.0 Features (Latest - November 2025)
 
-#### Multi-LLM Support
-- **Google Gemini 2.5 Pro** integration as fallback provider
-- Automatic failover from Claude to Gemini on API issues
-- Configurable provider priority
-- Robust error handling and retry logic
+#### Gemini-Only Architecture
+- **Simplified LLM Stack**: Removed Anthropic dependency, using only Google Gemini 2.5 Pro
+- **Enhanced Safety Settings**: Configured BLOCK_NONE for all categories to enable code analysis
+- **Finish Reason Handling**: Robust handling of API completion states
+- **Smart Diff Truncation**: Reduces 55MB+ diffs to ~5KB of meaningful changes
+- **Optimized Git Diff**: Using `--no-color`, `--no-ext-diff`, `--unified=2` flags
 
-#### Interactive Dashboard Enhancements
+#### Three-Score Tracking System
+- **Previous Score**: Overall app performance before code changes
+- **Current Score**: Overall app performance after code changes
+- **Delta Score**: Performance score specifically for new code changes
+- **Baseline Persistence**: Automatic storage in `dashboard/public/baseline_score.json`
+- **AI-Powered Delta Calculation**: Considers risk score, critical paths, and file count
+
+#### Automatic File Management
+- **Dual-Location Saves**: Outputs automatically saved to both:
+  - `perfguard_score.json` (root directory for backward compatibility)
+  - `dashboard/public/report.json` (dashboard consumption)
+- **No Manual Copy-Paste**: Eliminates need for `cp` commands
+- **GitHub Actions Compatible**: Works seamlessly in CI/CD environments
+
+#### Dashboard Reliability Enhancements
+- **Custom Proxy Server**: `setupProxy.js` for reliable JSON serving with proper headers
+- **Client-Side Logging**: `[PerfGuard]` prefix logs in browser console
+- **Server-Side Logging**: `[Proxy]` prefix logs in terminal
+- **Enhanced Error Handling**: No fallback to mock data - shows real errors with troubleshooting steps
+- **Aggressive Cache-Busting**: Both client-side (query params) and server-side (headers)
+- **Enriched Metrics**: Metrics object now includes score fields for all categories
+
+#### Automation Scripts
+- **`perfguard_complete.sh`**: Master menu-driven script with 5 workflow options
+- **`verify_dashboard.sh`**: Complete 10-step verification (clean → analyze → verify → compare)
+- **`start_dashboard.sh`**: Quick dashboard startup with pre-flight checks
+- **Comprehensive Documentation**: `DASHBOARD_FIX_COMPLETE.md` with debugging guide
+
+### Version 2.0 Features (Previous)
+
+#### Interactive Dashboard Features
 - **Auto-Refresh**: Updates every 30 seconds automatically
 - **Manual Refresh**: Instant update button
 - **Last Updated Indicator**: Shows when data was last fetched
-- **Cache-Busting**: Prevents browser caching with timestamp queries
-- **Recommendations Card**: New component with actionable score improvement tips
-  - Severity-based prioritization (Critical, High, Medium, Low)
+- **Recommendations Card**: Actionable score improvement tips with severity levels
+  - Critical, High, Medium, Low prioritization
   - Estimated point impact for each fix
   - Specific commands and code examples
-  - Quick actions for common optimizations
 
-#### Reliability Improvements
+#### Reliability Features
 - **Unicode Sanitization**: Comprehensive ASCII-only text processing
 - **Error Recovery**: Graceful handling of API failures
 - **Retry Logic**: Configurable retry attempts with exponential backoff
 - **Better Logging**: Structured logging with sanitized output
 
-#### CI/CD Enhancements
+#### CI/CD Features
 - **GitHub Pages Deployment**: Automatic dashboard deployment workflow
 - **Artifact Management**: 30-day retention for performance results
 - **Better PR Comments**: Updated or created intelligently
@@ -777,12 +942,12 @@ bandit -r perfguard/
 
 ## 📚 Resources
 
-- [Claude AI Documentation](https://docs.anthropic.com/)
-- [Google Gemini API Docs](https://ai.google.dev/docs)
+- [Google Gemini API Documentation](https://ai.google.dev/docs)
 - [pytest-benchmark Guide](https://pytest-benchmark.readthedocs.io/)
-- [GitHub Actions Docs](https://docs.github.com/en/actions)
-- [React Dashboard Guide](https://react.dev/)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [React Documentation](https://react.dev/)
 - [Performance Testing Best Practices](https://martinfowler.com/articles/performance-testing.html)
+- [PerfGuard AI Dashboard Fix Guide](DASHBOARD_FIX_COMPLETE.md)
 
 ---
 

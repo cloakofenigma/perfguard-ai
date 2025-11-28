@@ -12,6 +12,10 @@ const Dashboard = ({ data }) => {
       <ScoreCard
         score={data.performance_score}
         verdict={data.verdict}
+        blockMerge={data.block_merge}
+        previousScore={data.previous_score}
+        currentScore={data.current_score}
+        deltaScore={data.delta_score}
       />
 
       <MetricsCard

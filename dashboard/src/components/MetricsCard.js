@@ -29,6 +29,18 @@ const MetricsCard = ({ metrics }) => {
     return icons[name] || '📊';
   };
 
+  const getMetricDescription = (name) => {
+    const descriptions = {
+      execution_time: 'How fast your code runs',
+      memory_rss: 'RAM usage of your app',
+      cpu_utilization: 'Processing power used',
+      io_latency: 'File/database read speed',
+      complexity: 'Code maintainability',
+      ai_risk: 'AI-detected issues'
+    };
+    return descriptions[name] || 'Performance metric';
+  };
+
   const formatValue = (name, value) => {
     if (name === 'execution_time') return `${value.toFixed(4)}s`;
     if (name === 'memory_rss') return `${value.toFixed(2)} MB`;
@@ -41,19 +53,30 @@ const MetricsCard = ({ metrics }) => {
 
   const renderMetricItem = ([name, metricData]) => {
     const score = metricData.score || 0;
-    const current = metricData.current !== undefined ? metricData.current : metricData.risk_score;
+    const current = metricData.current !== undefined ? metricData.current : metricData.risk_level;
     const baseline = metricData.baseline;
-    const change = metricData.change;
+    const change = metricData.change_percent !== undefined ? metricData.change_percent : metricData.change;
 
     return (
       <li key={name} className="metric-item">
         <div className="metric-header">
           <div className="metric-name">
             <span>{getMetricIcon(name)}</span>
-            <span>{formatMetricName(name)}</span>
+            <div>
+              <span style={{ display: 'block' }}>{formatMetricName(name)}</span>
+              <span style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                display: 'block',
+                marginTop: '0.125rem'
+              }}>
+                {getMetricDescription(name)}
+              </span>
+            </div>
           </div>
           <div className={`metric-score ${getScoreClass(score)}`}>
             {score.toFixed(0)}
+            <span style={{ fontSize: '0.625rem', opacity: 0.7 }}>/100</span>
           </div>
         </div>
 
@@ -67,13 +90,13 @@ const MetricsCard = ({ metrics }) => {
         <div className="metric-details">
           {current !== undefined && (
             <div className="metric-detail">
-              <span className="metric-detail-label">Current</span>
+              <span className="metric-detail-label">Now</span>
               <span className="metric-detail-value">{formatValue(name, current)}</span>
             </div>
           )}
           {baseline !== undefined && (
             <div className="metric-detail">
-              <span className="metric-detail-label">Baseline</span>
+              <span className="metric-detail-label">Before</span>
               <span className="metric-detail-value">{formatValue(name, baseline)}</span>
             </div>
           )}
@@ -96,6 +119,15 @@ const MetricsCard = ({ metrics }) => {
         <h2 className="card-title">Performance Metrics</h2>
         <div className="card-icon">📈</div>
       </div>
+
+      <p style={{
+        fontSize: '0.875rem',
+        color: 'var(--text-muted)',
+        marginBottom: '1rem',
+        paddingLeft: '0.5rem'
+      }}>
+        Detailed breakdown of each performance aspect
+      </p>
 
       <ul className="metrics-list">
         {Object.entries(metrics).map(renderMetricItem)}

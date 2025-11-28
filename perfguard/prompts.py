@@ -1,22 +1,22 @@
 PROMPTS = {
     "diff_analysis": """
-You are a performance engineer. Analyze this git diff for perf risks.
+You are a performance engineer analyzing code changes for performance risks.
 
-Diff: {diff}
+Code diff:
+{diff}
 
-Rules:
-- Identify hotspots (loops, I/O, allocations)
-- Suggest 3-5 pytest benchmarks
-- Risk 0-1 (1=high)
+Analyze the diff and provide your assessment in STRICT JSON format (no markdown, no extra text).
 
-JSON output only:
+Required JSON structure:
 {{
-  "risk_score": 0.78,
-  "critical_paths": ["src/payment.py"],
-  "suggested_benchmarks": ["test_process_batch", "test_image_resize"],
-  "reasoning": "N+1 queries detected",
-  "suggestions": ["Add indexing to DB queries"]
+  "risk_score": <float between 0 and 1, where 1 is highest risk>,
+  "critical_paths": [<list of file paths that may impact performance>],
+  "suggested_benchmarks": [<list of 3-5 test names to benchmark>],
+  "reasoning": "<brief explanation of performance concerns>",
+  "suggestions": [<list of 3-5 actionable suggestions>]
 }}
+
+IMPORTANT: Return ONLY the JSON object, nothing else. No markdown code blocks, no explanations before or after.
     """,
 
     "score_refinement": """
