@@ -2,7 +2,7 @@
   def slow_search():
       """Intentionally slow search for demo"""
       movies = []
-      for i in range(1000000000):  # O(n²) complexity
+      for i in range(56000000000):  # O(n²) complexity
           for movie in MOVIES_DATA:
               if movie["title"]:
                   movies.append(movie)
