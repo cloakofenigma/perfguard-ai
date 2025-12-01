@@ -57,17 +57,25 @@ class MetricsCollector:
 
             # Parse benchmark results
             if Path("benchmark_results.json").exists():
-                with open("benchmark_results.json", 'r') as f:
-                    data = json.load(f)
+                try:
+                    with open("benchmark_results.json", 'r') as f:
+                        content = f.read().strip()
+                        if not content:
+                            logger.warning("Benchmark results file is empty")
+                            return {"current": 0.0}
+                        data = json.loads(content)
 
-                benchmarks = data.get("benchmarks", [])
-                if benchmarks:
-                    # Use P95 (95th percentile) or mean
-                    total_mean = sum(b["stats"]["mean"] for b in benchmarks) / len(benchmarks)
-                    logger.info(f"Execution time (mean): {total_mean:.4f}s")
-                    return {"current": total_mean}
-                else:
-                    logger.warning("No benchmarks found")
+                    benchmarks = data.get("benchmarks", [])
+                    if benchmarks:
+                        # Use P95 (95th percentile) or mean
+                        total_mean = sum(b["stats"]["mean"] for b in benchmarks) / len(benchmarks)
+                        logger.info(f"Execution time (mean): {total_mean:.4f}s")
+                        return {"current": total_mean}
+                    else:
+                        logger.warning("No benchmarks found in results")
+                        return {"current": 0.0}
+                except json.JSONDecodeError as je:
+                    logger.error(f"Invalid JSON in benchmark_results.json: {je}")
                     return {"current": 0.0}
             else:
                 logger.warning("No benchmark results file found")
