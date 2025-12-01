@@ -7,6 +7,18 @@ import json
 from movies_data import get_all_movies, get_movie_by_id, search_movies, get_top_rated_movies
 from slow_app_new import register_slow_routes
 
+
+from slow_performance import slow_route_handler
+
+
+
+@app.route('/slow-test')
+  def slow_test():
+      """Test route with intentional performance degradation"""
+      result = slow_route_handler()
+      return jsonify(result)
+
+
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
