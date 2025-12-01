@@ -49,6 +49,7 @@ class Config:
     PYTEST_MARKERS = "perf"
     BENCHMARK_ROUNDS = 5
     MEMORY_PRECISION = 3
+    REQUIRE_PYTEST_TESTS = True  # Make pytest benchmarks mandatory
 
     # Retry Configuration
     API_RETRY_ATTEMPTS = 3
