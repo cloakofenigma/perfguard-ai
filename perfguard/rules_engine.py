@@ -37,9 +37,8 @@ def calculate_metric_score(
     # For metrics where higher is worse (time, memory, cpu, io)
     if not higher_is_better:
         if change_percent <= 0:
-            # Improvement - give bonus points
-            score = 100 + abs(change_percent) * 100
-            return min(score, 120)  # Cap at 120
+            # Improvement - cap at 100 (no bonus)
+            return 100.0  # Perfect score for improvements
         elif change_percent <= threshold:
             # Within acceptable threshold
             score = 100 - (change_percent / threshold) * 20
@@ -53,8 +52,7 @@ def calculate_metric_score(
     else:
         # For metrics where higher is better (rare)
         if change_percent >= 0:
-            score = 100 + (change_percent * 100)
-            return min(score, 120)
+            return 100.0  # Perfect score for improvements
         else:
             score = 100 + (change_percent * 100)
             return max(score, 0)
