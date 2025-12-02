@@ -22,6 +22,7 @@ from junk_performance_killer import (
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_recursive_fibonacci_slow(benchmark):
     """
     Test recursive fibonacci - will show O(2^n) explosion
@@ -32,6 +33,7 @@ def test_recursive_fibonacci_slow(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_memory_bomb_benchmark(benchmark):
     """
     Test memory allocation bomb
@@ -42,6 +44,7 @@ def test_memory_bomb_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_blocking_io_benchmark(benchmark):
     """
     Test blocking I/O operations
@@ -52,6 +55,7 @@ def test_blocking_io_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_nested_loops_benchmark(benchmark):
     """
     Test O(n^3) nested loops
@@ -62,6 +66,7 @@ def test_nested_loops_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_string_concat_benchmark(benchmark):
     """
     Test inefficient string concatenation
@@ -72,6 +77,7 @@ def test_string_concat_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_json_parsing_benchmark(benchmark):
     """
     Test redundant JSON operations
@@ -82,6 +88,7 @@ def test_json_parsing_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 def test_list_operations_benchmark(benchmark):
     """
     Test unoptimized list operations
@@ -92,6 +99,7 @@ def test_list_operations_benchmark(benchmark):
 
 
 @pytest.mark.perf
+@pytest.mark.junk  # Exclude from normal runs
 @pytest.mark.slow
 def test_combined_killer_benchmark(benchmark):
     """

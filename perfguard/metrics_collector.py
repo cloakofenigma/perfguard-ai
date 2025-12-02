@@ -58,10 +58,10 @@ class MetricsCollector:
         logger.info("Collecting execution time metrics...")
 
         try:
-            # Run pytest with benchmark marker
+            # Run pytest with benchmark marker, exclude junk tests
             cmd = [
                 "pytest",
-                "-m", config.PYTEST_MARKERS,
+                "-m", f"{config.PYTEST_MARKERS} and not junk",
                 "--benchmark-only",
                 "--benchmark-json=benchmark_results.json",
                 "-v"
@@ -135,7 +135,7 @@ class MetricsCollector:
                 """Run tests and measure memory"""
                 cmd = [
                     "pytest",
-                    "-m", config.PYTEST_MARKERS,
+                    "-m", f"{config.PYTEST_MARKERS} and not junk",
                     "-v",
                     "--tb=short"
                 ]
@@ -181,7 +181,7 @@ class MetricsCollector:
             # Start test in subprocess
             cmd = [
                 "pytest",
-                "-m", config.PYTEST_MARKERS,
+                "-m", f"{config.PYTEST_MARKERS} and not junk",
                 "-v",
                 "--tb=short"
             ]
@@ -238,7 +238,7 @@ class MetricsCollector:
             # Run tests
             cmd = [
                 "pytest",
-                "-m", config.PYTEST_MARKERS,
+                "-m", f"{config.PYTEST_MARKERS} and not junk",
                 "-v",
                 "--tb=short"
             ]

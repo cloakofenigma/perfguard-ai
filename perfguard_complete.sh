@@ -115,7 +115,7 @@ case $choice in
         # Run pytest with only junk tests
         echo ""
         echo "Step 1: Running junk performance tests..."
-        ./venv/bin/pytest sample-app/tests/test_junk_performance.py -m perf --benchmark-only --benchmark-json=benchmark_results.json -v
+        ./venv/bin/pytest sample-app/tests/test_junk_performance.py -m "perf and junk" --benchmark-only --benchmark-json=benchmark_results.json -v
 
         echo ""
         echo "Step 2: Running PerfGuard analysis..."
