@@ -30,8 +30,9 @@ echo "  2) Run Analysis Only"
 echo "  3) Verify Existing Reports"
 echo "  4) Start Dashboard (requires existing report)"
 echo "  5) Clean All Reports and Start Fresh"
+echo "  6) Test with Junk Code (Should BLOCK merge)"
 echo ""
-read -p "Enter choice [1-5]: " choice
+read -p "Enter choice [1-6]: " choice
 
 case $choice in
     1)
@@ -96,6 +97,48 @@ case $choice in
         echo "✅ All reports cleaned!"
         echo ""
         echo "Run analysis: ./venv/bin/python3 perfguard/main.py"
+        ;;
+
+    6)
+        echo ""
+        echo "🔥 Testing with Junk Performance Code..."
+        echo "========================================"
+        echo ""
+        echo "This will run pytest with junk_performance_killer tests"
+        echo "Expected results:"
+        echo "  ❌ Score: < 50 (FAIL)"
+        echo "  ❌ Verdict: FAIL"
+        echo "  ❌ Merge: BLOCKED"
+        echo ""
+        read -p "Press Enter to continue..."
+
+        # Run pytest with only junk tests
+        echo ""
+        echo "Step 1: Running junk performance tests..."
+        ./venv/bin/pytest sample-app/tests/test_junk_performance.py -m perf --benchmark-only --benchmark-json=benchmark_results.json -v
+
+        echo ""
+        echo "Step 2: Running PerfGuard analysis..."
+        ./venv/bin/python3 perfguard/main.py
+
+        echo ""
+        echo "Step 3: Results summary..."
+        if [ -f "perfguard_score.json" ]; then
+            echo ""
+            echo "📊 Performance Score:"
+            cat perfguard_score.json | grep -A 2 "performance_score"
+            echo ""
+            echo "🚦 Verdict:"
+            cat perfguard_score.json | grep -A 1 "verdict"
+            echo ""
+            echo "🚫 Merge Status:"
+            cat perfguard_score.json | grep -A 1 "block_merge"
+            echo ""
+            echo "Full report: cat perfguard_report.md"
+            echo "Dashboard: ./start_dashboard.sh"
+        else
+            echo "❌ No results file found!"
+        fi
         ;;
 
     *)
