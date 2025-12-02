@@ -137,6 +137,8 @@ def calculate_score(metrics: Dict[str, Any], ai_response: Dict[str, Any]) -> Dic
             }
             logger.info(f"Execution Time Score: {scores['execution_time']:.1f}")
         else:
+            if config.REQUIRE_PYTEST_TESTS:
+                raise ValueError("Execution time metrics missing - pytest benchmarks are mandatory")
             scores["execution_time"] = 100
             logger.warning("No execution time metrics available")
 
@@ -179,6 +181,8 @@ def calculate_score(metrics: Dict[str, Any], ai_response: Dict[str, Any]) -> Dic
             }
             logger.info(f"CPU Utilization Score: {scores['cpu_utilization']:.1f}")
         else:
+            if config.REQUIRE_PYTEST_TESTS:
+                raise ValueError("CPU utilization metrics missing - pytest benchmarks are mandatory")
             scores["cpu_utilization"] = 100
             logger.warning("No CPU metrics available")
 
@@ -200,6 +204,8 @@ def calculate_score(metrics: Dict[str, Any], ai_response: Dict[str, Any]) -> Dic
             }
             logger.info(f"I/O Latency Score: {scores['io_latency']:.1f}")
         else:
+            if config.REQUIRE_PYTEST_TESTS:
+                raise ValueError("I/O latency metrics missing - pytest benchmarks are mandatory")
             scores["io_latency"] = 100
             logger.warning("No I/O latency metrics available")
 

@@ -26,6 +26,28 @@ class MetricsCollector:
 
     def __init__(self):
         self.storage = BaselineStorage(config.BASELINE_STORAGE_PATH)
+        self._validate_test_setup()
+
+    def _validate_test_setup(self):
+        """Validate that pytest tests exist when required"""
+        if not config.REQUIRE_PYTEST_TESTS:
+            return
+
+        # Check if test directory exists in APPLICATION_PATH
+        test_dir = Path(config.APPLICATION_PATH) / "tests"
+        if not test_dir.exists():
+            error_msg = f"Test directory not found: {test_dir}. pytest tests are mandatory."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Check if test files exist
+        test_files = list(test_dir.glob("test_*.py"))
+        if not test_files:
+            error_msg = f"No test files found in {test_dir}. pytest tests with @pytest.mark.perf are mandatory."
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        logger.info(f"✓ Found {len(test_files)} test file(s) in {test_dir}")
 
     def collect_execution_time(self, test_path: str = None) -> Dict[str, float]:
         """
@@ -57,20 +79,40 @@ class MetricsCollector:
 
             # Parse benchmark results
             if Path("benchmark_results.json").exists():
-                with open("benchmark_results.json", 'r') as f:
-                    data = json.load(f)
+                try:
+                    with open("benchmark_results.json", 'r') as f:
+                        content = f.read().strip()
+                        if not content:
+                            error_msg = "Benchmark results file is empty - pytest tests required"
+                            logger.error(error_msg)
+                            if config.REQUIRE_PYTEST_TESTS:
+                                raise ValueError(error_msg)
+                            return {"current": 0.0}
+                        data = json.loads(content)
 
-                benchmarks = data.get("benchmarks", [])
-                if benchmarks:
-                    # Use P95 (95th percentile) or mean
-                    total_mean = sum(b["stats"]["mean"] for b in benchmarks) / len(benchmarks)
-                    logger.info(f"Execution time (mean): {total_mean:.4f}s")
-                    return {"current": total_mean}
-                else:
-                    logger.warning("No benchmarks found")
+                    benchmarks = data.get("benchmarks", [])
+                    if benchmarks:
+                        # Use P95 (95th percentile) or mean
+                        total_mean = sum(b["stats"]["mean"] for b in benchmarks) / len(benchmarks)
+                        logger.info(f"Execution time (mean): {total_mean:.4f}s")
+                        return {"current": total_mean}
+                    else:
+                        error_msg = "No benchmarks found - pytest tests with @pytest.mark.perf required"
+                        logger.error(error_msg)
+                        if config.REQUIRE_PYTEST_TESTS:
+                            raise ValueError(error_msg)
+                        return {"current": 0.0}
+                except json.JSONDecodeError as je:
+                    error_msg = f"Invalid JSON in benchmark_results.json: {je}"
+                    logger.error(error_msg)
+                    if config.REQUIRE_PYTEST_TESTS:
+                        raise ValueError(error_msg)
                     return {"current": 0.0}
             else:
-                logger.warning("No benchmark results file found")
+                error_msg = "No benchmark results file found - pytest tests required"
+                logger.error(error_msg)
+                if config.REQUIRE_PYTEST_TESTS:
+                    raise ValueError(error_msg)
                 return {"current": 0.0}
 
         except subprocess.TimeoutExpired:
