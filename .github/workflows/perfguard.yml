@@ -129,7 +129,26 @@ jobs:
           if [ -f "dashboard/public/report.json" ]; then
             echo "✅ Dashboard data updated automatically"
           else
-            echo "::warning::Dashboard report not found at dashboard/public/report.json"
+            echo "::warning::Dashboard report not found, creating fallback"
+            # Create fallback report.json if PerfGuard didn't generate one
+            mkdir -p dashboard/public
+            cat > dashboard/public/report.json << 'EOF'
+          {
+            "performance_score": 0,
+            "verdict": "ERROR",
+            "metrics": {
+              "execution_time": {"current": 0, "baseline": 0, "change_percent": 0, "score": 0},
+              "memory_rss": {"current": 0, "baseline": 0, "change_percent": 0, "score": 0},
+              "cpu_utilization": {"current": 0, "baseline": 0, "change_percent": 0, "score": 0},
+              "io_latency": {"current": 0, "baseline": 0, "change_percent": 0, "score": 0},
+              "complexity": {"current": 0, "baseline": 0, "change_percent": 0, "score": 0},
+              "ai_risk": {"score": 0}
+            },
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "error": "PerfGuard analysis did not complete. This is a fallback report."
+          }
+          EOF
+            echo "✅ Created fallback report.json"
           fi
 
       - name: Set up Node.js
