@@ -143,7 +143,7 @@ jobs:
       - name: Install dashboard dependencies
         if: always()
         working-directory: ./dashboard
-        run: npm ci
+        run: npm install
 
       - name: Build dashboard
         if: always()
