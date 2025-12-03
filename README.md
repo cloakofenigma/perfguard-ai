@@ -109,8 +109,7 @@ perfguard-ai/
 │           ├── PRScoreChart.js        # Score history chart
 │           └── Dashboard.js           # Main layout
 ├── .github/workflows/       # CI/CD pipelines
-│   ├── perfguard.yml       # Main PerfGuard workflow
-│   └── deploy-dashboard.yml # GitHub Pages deployment
+│   └── perfguard.yml       # Main workflow (analysis + dashboard deployment)
 ├── requirements.txt         # Python dependencies
 ├── pytest.ini              # Test configuration
 ├── perfguard_score.json    # Latest performance results
@@ -167,7 +166,11 @@ Add secrets to your repository:
 - GitHub token is automatically available as `GITHUB_TOKEN`
 
 6. **Enable GitHub Pages (for dashboard)**
-- Settings → Pages → Source: GitHub Actions
+- Settings → Pages → Source: **Deploy from a branch**
+- Branch: **gh-pages** / **(root)**
+- Click **Save**
+- Dashboard will auto-deploy via perfguard.yml workflow
+- Note: The workflow uses peaceiris/actions-gh-pages@v3 to deploy to gh-pages branch
 
 7. **Enable branch protection**
 - Settings → Branches → Add rule
@@ -358,6 +361,28 @@ After deploying to GitHub Pages, your dashboard will be available at:
 ```
 https://[your-username].github.io/perfguard-ai/
 ```
+
+### How Dashboard Deployment Works
+
+**Automatic Deployment:**
+- Dashboard builds and deploys automatically via perfguard.yml workflow
+- Triggered on every PR and push to main in sample-app directory
+- Uses peaceiris/actions-gh-pages@v3 action
+- Deploys to gh-pages branch (force orphan - clean slate each time)
+- GitHub Pages serves from gh-pages branch
+
+**Deployment Flow:**
+1. PerfGuard analysis runs and generates report.json
+2. Dashboard React app builds with report.json included
+3. Build artifacts copied to gh-pages branch
+4. GitHub Pages picks up changes and serves updated dashboard
+5. Available at: https://[username].github.io/perfguard-ai/
+
+**Key Configuration:**
+- **package.json**: `"homepage": "https://[username].github.io/perfguard-ai"`
+- **App.js**: Uses `process.env.PUBLIC_URL` for asset paths
+- **perfguard.yml**: Deploys to gh-pages branch on every run
+- **GitHub Pages**: Configured to serve from gh-pages branch
 
 ### Dashboard Components
 
@@ -659,15 +684,17 @@ python perfguard/main.py
 ### CI/CD Integration
 
 PerfGuard automatically runs on:
-- Pull requests (opened, synchronized, reopened)
-- Pushes to main branch
+- Pull requests (opened, synchronized, reopened) - only for sample-app/** changes
+- Pushes to main branch - only for sample-app/** changes
 - Manual workflow dispatch
 
 Results are:
-- Posted as PR comments
+- Posted as PR comments with detailed analysis
 - Uploaded as artifacts (30-day retention)
-- Deployed to dashboard (on main branch)
-- Used for merge blocking (score < 80)
+- **Dashboard deployed to gh-pages branch on EVERY run (including PRs)**
+- Dashboard accessible at: https://[username].github.io/perfguard-ai/
+- Workflow status used for merge blocking (score < 80)
+- Both report.json and baseline_score.json deployed automatically
 
 ---
 
@@ -804,6 +831,28 @@ npm run build
 - Check workflow logs for specific errors
 - Ensure branch protection is configured correctly
 
+#### 10. Dashboard Shows "Report Load Failed: HTTP 404"
+**Problem**: Dashboard can't find report.json despite file existing
+**Root Cause**: Incorrect path configuration for GitHub Pages deployment
+
+**Solution:**
+1. Verify PUBLIC_URL is used in App.js:
+   ```javascript
+   const url = `${process.env.PUBLIC_URL}/report.json?t=${Date.now()}`;
+   ```
+2. Check package.json has correct homepage:
+   ```json
+   "homepage": "https://[username].github.io/perfguard-ai"
+   ```
+3. Clear browser cache completely (Ctrl+Shift+Delete → All Time)
+4. Wait 5-10 minutes for CDN propagation after new deployment
+5. Verify file exists: `curl https://[username].github.io/perfguard-ai/report.json`
+
+**Note**: If you see this error on a fresh browser, check that:
+- GitHub Pages is set to gh-pages branch (not GitHub Actions)
+- Latest workflow completed successfully
+- No github-pages environment exists (check Settings → Environments)
+
 ### Debug Mode
 
 ```bash
@@ -870,7 +919,21 @@ bandit -r perfguard/
 
 ## 🎉 Recent Updates
 
-### Version 3.0 Features (Latest - November 2025)
+### Version 3.1 Features (Latest - December 2025)
+
+#### GitHub Pages Deployment Fix
+- **PUBLIC_URL Path Resolution**: Fixed report.json loading on GitHub Pages
+  - Changed from absolute path `/report.json` to `${process.env.PUBLIC_URL}/report.json`
+  - Resolves to `/perfguard-ai/report.json` on GitHub Pages
+  - Works correctly in both local dev and production
+- **Simplified Workflow**: Removed conflicting deploy-dashboard.yml
+  - Single workflow (perfguard.yml) handles both analysis and dashboard deployment
+  - Uses peaceiris/actions-gh-pages@v3 for reliable gh-pages branch deployment
+- **Environment Cleanup**: Removed github-pages environment to prevent deployment conflicts
+  - GitHub Pages now correctly uses gh-pages branch (legacy mode)
+  - No more README.md showing instead of dashboard
+
+### Version 3.0 Features (November 2025)
 
 #### Gemini-Only Architecture
 - **Simplified LLM Stack**: Removed Anthropic dependency, using only Google Gemini 2.5 Pro
@@ -993,7 +1056,7 @@ MIT License - see [LICENSE](LICENSE) for details
 ### FAQ
 
 **Q: Which AI provider should I use?**
-A: Use both! Anthropic Claude 3.5 Sonnet is primary, Google Gemini 2.5 Pro is fallback for reliability.
+A: Google Gemini 2.5 Pro is the primary and only LLM used. Simplified architecture with robust error handling.
 
 **Q: How much do API calls cost?**
 A: Minimal. Each analysis uses ~2K tokens (~$0.01 per run with Claude, even less with Gemini).
@@ -1018,8 +1081,8 @@ A: Configure in `config.py` or use `.perfguardignore` file (coming soon).
 - ✅ **Comprehensive Testing**: Sample app with performance tests
 - 🚧 **Active Development**: New features added regularly
 
-**Latest Version**: 2.0
-**Last Updated**: November 2024
+**Latest Version**: 3.1
+**Last Updated**: December 2025
 
 ---
 
