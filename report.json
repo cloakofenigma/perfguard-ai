@@ -1,0 +1,91 @@
+{
+  "performance_score": 75.5,
+  "verdict": "WARNING",
+  "block_merge": true,
+  "scores": {
+    "execution_time": 100.0,
+    "memory_rss": 6.768526537176797,
+    "cpu_utilization": 60.724736094820656,
+    "io_latency": 100.0,
+    "complexity": 100,
+    "ai_risk": 100.0
+  },
+  "details": {
+    "execution_time": {
+      "score": 100.0,
+      "current": 0.06344143884751674,
+      "baseline": 0.3917594386493132,
+      "change_percent": -83.80602160697221
+    },
+    "memory_rss": {
+      "score": 6.768526537176797,
+      "current": 91.75,
+      "baseline": 63.1484375,
+      "change_percent": 45.29258938512928
+    },
+    "cpu_utilization": {
+      "score": 60.724736094820656,
+      "current": 0.30927835051546393,
+      "baseline": 0.23857142857142857,
+      "change_percent": 29.637631952589672
+    },
+    "io_latency": {
+      "score": 100.0,
+      "current": 12.794533027674104,
+      "baseline": 38.75462789083718,
+      "change_percent": -66.98579311943507
+    },
+    "complexity": {
+      "score": 100,
+      "current": 10,
+      "baseline": 143,
+      "delta": -133
+    },
+    "ai_risk": {
+      "score": 100.0,
+      "risk_level": 0.0,
+      "threshold": 0.6
+    }
+  },
+  "metrics": {
+    "execution_time": {
+      "current": 0.06344143884751674,
+      "baseline": 0.3917594386493132,
+      "change_percent": -83.80602160697221,
+      "score": 100.0
+    },
+    "memory_rss": {
+      "current": 91.75,
+      "baseline": 63.1484375,
+      "change_percent": 45.29258938512928,
+      "score": 6.768526537176797
+    },
+    "cpu_utilization": {
+      "current": 0.30927835051546393,
+      "baseline": 0.23857142857142857,
+      "change_percent": 29.637631952589672,
+      "score": 60.724736094820656
+    },
+    "io_latency": {
+      "current": 12.794533027674104,
+      "baseline": 38.75462789083718,
+      "change_percent": -66.98579311943507,
+      "score": 100.0
+    },
+    "complexity": {
+      "current": 10,
+      "baseline": 143,
+      "delta": -133,
+      "score": 100
+    }
+  },
+  "ai_analysis": {
+    "risk_score": 0.0,
+    "critical_paths": [],
+    "reasoning": "The change consists only of adding a comment line. Comments are ignored by the interpreter and have no impact on runtime performance, memory usage, or I/O operations.",
+    "suggestions": []
+  },
+  "previous_score": 79.5,
+  "current_score": 75.5,
+  "delta_score": 100.0
+}

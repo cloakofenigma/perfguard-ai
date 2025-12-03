@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/perfguard-ai/static/css/main.322d77d3.css",
+    "main.js": "/perfguard-ai/static/js/main.9f075b19.js",
+    "index.html": "/perfguard-ai/index.html",
+    "main.322d77d3.css.map": "/perfguard-ai/static/css/main.322d77d3.css.map",
+    "main.9f075b19.js.map": "/perfguard-ai/static/js/main.9f075b19.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.322d77d3.css",
+    "static/js/main.9f075b19.js"
+  ]
+}
