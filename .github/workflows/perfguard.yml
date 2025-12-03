@@ -3,11 +3,15 @@ name: PerfGuard AI
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - 'sample-app/**'  # Only trigger for application code changes
   push:
     branches: [main]
+    paths:
+      - 'sample-app/**'  # Only trigger for application code changes
 
 permissions:
-  contents: read
+  contents: write  # Required for gh-pages deployment
   issues: write
   pull-requests: write
 
@@ -119,7 +123,7 @@ jobs:
           retention-days: 30
 
       - name: Update dashboard data
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: always()
         run: |
           # Dashboard data is automatically saved to dashboard/public/report.json by main.py
           if [ -f "dashboard/public/report.json" ]; then
@@ -127,6 +131,64 @@ jobs:
           else
             echo "::warning::Dashboard report not found at dashboard/public/report.json"
           fi
+
+      - name: Set up Node.js
+        if: always()
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        if: always()
+        working-directory: ./dashboard
+        run: npm ci
+
+      - name: Build dashboard
+        if: always()
+        working-directory: ./dashboard
+        run: npm run build
+
+      - name: Copy report to dashboard build
+        if: always()
+        run: |
+          echo "::group::Copy Reports to Dashboard"
+
+          # Ensure build directory exists
+          mkdir -p dashboard/build
+
+          # Copy report.json if it exists in dashboard/public/
+          if [ -f "dashboard/public/report.json" ]; then
+            cp dashboard/public/report.json dashboard/build/report.json
+            echo "✅ Copied dashboard/public/report.json to build/"
+          else
+            echo "::warning::dashboard/public/report.json not found"
+          fi
+
+          # Also copy baseline_score.json if it exists
+          if [ -f "dashboard/public/baseline_score.json" ]; then
+            cp dashboard/public/baseline_score.json dashboard/build/baseline_score.json
+            echo "✅ Copied baseline_score.json to build/"
+          else
+            echo "::warning::baseline_score.json not found"
+          fi
+
+          # List files in build directory for verification
+          echo "Files in dashboard/build/:"
+          ls -la dashboard/build/ || echo "Build directory is empty"
+
+          echo "::endgroup::"
+
+      - name: Deploy to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dashboard/build
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: 'Deploy dashboard with PerfGuard results for ${{ github.event_name }} #${{ github.event.pull_request.number || github.sha }}'
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
