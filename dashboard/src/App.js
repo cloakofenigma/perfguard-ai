@@ -12,7 +12,8 @@ function App() {
     console.log('[PerfGuard] Fetching report.json...');
 
     // Add timestamp to prevent caching
-    const url = `/report.json?t=${Date.now()}`;
+    // Use PUBLIC_URL for GitHub Pages compatibility
+    const url = `${process.env.PUBLIC_URL}/report.json?t=${Date.now()}`;
     console.log('[PerfGuard] Fetch URL:', url);
 
     fetch(url, {
